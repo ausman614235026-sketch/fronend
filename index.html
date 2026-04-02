@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Café POS</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --bg:#0f0e0c;--bg2:#1a1917;--bg3:#242320;--bg4:#2e2c29;
+    --border:#3a3835;--border2:#4a4845;
+    --text:#f0ede8;--text2:#a09d98;--text3:#6a6865;
+    --amber:#e8a020;--amber2:#f5b840;--amber-dim:#3a2a08;
+    --green:#2ecc8a;--green-dim:#0a2e1e;
+    --red:#e84040;--red-dim:#2e0a0a;
+    --blue:#4090e8;--blue-dim:#0a1a2e;
+    --radius:10px;--radius-lg:16px;
+  }
+  body{font-family:'Noto Sans Thai',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow:hidden}
+
+  .app{display:grid;grid-template-rows:56px 1fr;height:100vh}
+  .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--border);background:var(--bg2)}
+  .topbar-brand{font-family:'DM Mono',monospace;font-size:15px;color:var(--amber);letter-spacing:.08em}
+  .topbar-right{display:flex;align-items:center;gap:12px}
+  .topbar-time{font-family:'DM Mono',monospace;font-size:13px;color:var(--text3)}
+  .conn-dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .conn-dot.off{background:var(--red)}
+  .nav{display:flex;gap:4px}
+  .nav-btn{padding:6px 14px;border-radius:6px;border:none;background:transparent;color:var(--text2);cursor:pointer;font-size:13px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .nav-btn:hover{background:var(--bg3);color:var(--text)}
+  .nav-btn.active{background:var(--amber-dim);color:var(--amber);font-weight:500}
+  .badge-count{display:inline-block;background:var(--red);color:#fff;font-size:10px;border-radius:10px;padding:1px 6px;margin-left:4px;font-family:'DM Mono',monospace}
+
+  .main{overflow:hidden}
+
+  /* ── POS ── */
+  #page-pos{display:grid;grid-template-columns:1fr 340px;height:100%}
+  .menu-panel{overflow-y:auto;padding:16px;background:var(--bg)}
+  .menu-panel::-webkit-scrollbar{width:4px}
+  .menu-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+  .cat-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .cat-tab{padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .cat-tab:hover{border-color:var(--border2);color:var(--text)}
+  .cat-tab.active{background:var(--amber);border-color:var(--amber);color:#000;font-weight:500}
+  .menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+  .menu-item{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;cursor:pointer;transition:all .15s;position:relative}
+  .menu-item:hover{border-color:var(--amber);background:var(--bg3);transform:translateY(-1px)}
+  .menu-item:active{transform:scale(.97)}
+  .item-icon{font-size:24px;margin-bottom:8px;display:block}
+  .item-name{font-size:13px;font-weight:500;color:var(--text);line-height:1.3;margin-bottom:4px}
+  .item-price{font-family:'DM Mono',monospace;font-size:12px;color:var(--amber)}
+
+  .order-panel{background:var(--bg2);border-left:1px solid var(--border);display:flex;flex-direction:column}
+  .order-header{padding:14px 16px 10px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+  .order-title{font-size:14px;font-weight:500}
+  .order-num{font-family:'DM Mono',monospace;font-size:12px;color:var(--amber)}
+  .order-items{flex:1;overflow-y:auto;padding:10px}
+  .order-items::-webkit-scrollbar{width:3px}
+  .order-items::-webkit-scrollbar-thumb{background:var(--border)}
+  .order-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);font-size:13px;gap:8px}
+  .order-row{display:flex;align-items:center;gap:8px;padding:8px 6px;border-radius:8px;transition:background .1s}
+  .order-row:hover{background:var(--bg3)}
+  .qty-ctrl{display:flex;align-items:center}
+  .qty-btn{width:22px;height:22px;border-radius:4px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .1s}
+  .qty-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .qty-num{font-family:'DM Mono',monospace;font-size:13px;min-width:24px;text-align:center}
+  .item-row-name{flex:1;font-size:12px;line-height:1.3}
+  .item-row-price{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);min-width:50px;text-align:right}
+  .order-footer{padding:12px 16px;border-top:1px solid var(--border)}
+  .subtotal-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text2);margin-bottom:4px}
+  .total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:600;margin:10px 0}
+  .total-row span:last-child{font-family:'DM Mono',monospace;color:var(--amber)}
+  .pay-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .pay-btn{padding:10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:12px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .pay-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .pay-btn.primary{grid-column:1/-1;background:var(--amber);border-color:var(--amber);color:#000;font-weight:600;font-size:13px}
+  .pay-btn.primary:hover{background:var(--amber2)}
+  .pay-btn:disabled{opacity:.4;cursor:not-allowed}
+  .clear-btn{width:100%;padding:8px;border-radius:8px;border:1px solid var(--red-dim);background:transparent;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Noto Sans Thai',sans-serif;margin-top:6px;transition:all .15s}
+  .clear-btn:hover{border-color:var(--red);color:var(--red)}
+  .note-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;font-family:'Noto Sans Thai',sans-serif;margin:8px 0;resize:none;height:50px}
+  .note-input:focus{outline:none;border-color:var(--border2)}
+
+  /* ── KDS ── */
+  #page-kds{padding:16px;overflow-y:auto;background:var(--bg)}
+  .kds-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .kds-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .kds-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;transition:border-color .3s}
+  .kds-card.urgent{border-color:var(--red)}
+  .kds-card.new{animation:slideIn .3s ease}
+  @keyframes slideIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+  .kds-card-header{padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+  .kds-order-num{font-family:'DM Mono',monospace;font-size:13px;color:var(--amber);font-weight:500}
+  .kds-time{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)}
+  .kds-time.urgent{color:var(--red)}
+  .kds-items{padding:10px 14px}
+  .kds-item-row{font-size:13px;display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+  .kds-item-row:last-child{border-bottom:none}
+  .kds-qty{font-family:'DM Mono',monospace;font-size:12px;color:var(--amber);min-width:20px}
+  .kds-note{font-size:11px;color:var(--text3);padding:4px 14px 10px;font-style:italic}
+  .kds-done-btn{width:100%;padding:10px;background:var(--green-dim);border:none;border-top:1px solid var(--border);color:var(--green);cursor:pointer;font-size:13px;font-family:'Noto Sans Thai',sans-serif;font-weight:500;transition:all .15s}
+  .kds-done-btn:hover{background:var(--green);color:#000}
+  .kds-empty{text-align:center;color:var(--text3);font-size:14px;padding:60px 0}
+
+  /* ── REPORT ── */
+  #page-report{padding:20px;overflow-y:auto;background:var(--bg)}
+  .report-toolbar{display:flex;gap:10px;align-items:center;margin-bottom:20px}
+  .date-input{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--text);font-size:13px;font-family:'Noto Sans Thai',sans-serif}
+  .date-input:focus{outline:none;border-color:var(--amber)}
+  .refresh-btn{padding:7px 14px;border-radius:6px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .refresh-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}
+  .stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .stat-label{font-size:12px;color:var(--text3);margin-bottom:6px}
+  .stat-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500}
+  .stat-val.amber{color:var(--amber)}
+  .stat-val.green{color:var(--green)}
+  .stat-sub{font-size:11px;color:var(--text3);margin-top:4px}
+  .report-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+  .report-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+  .section-title{font-size:13px;color:var(--text2);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+  .top-item-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+  .top-item-row:last-child{border-bottom:none}
+  .top-bar{height:3px;background:var(--amber);border-radius:2px;margin-top:3px;transition:width .5s}
+  .chart-wrap{height:120px;display:flex;align-items:flex-end;gap:4px;padding:8px 0 0}
+  .chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .chart-bar{width:100%;background:var(--amber-dim);border-radius:3px 3px 0 0;border:1px solid var(--amber);min-height:3px;transition:height .5s}
+  .chart-label{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
+
+  /* Modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;animation:fadeIn .15s}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:24px;width:320px;max-width:90vw}
+  .modal h3{font-size:16px;margin-bottom:16px}
+  .modal-total{font-family:'DM Mono',monospace;font-size:28px;color:var(--amber);text-align:center;margin:16px 0;font-weight:600}
+  .modal-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  .method-btn{padding:12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:13px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s;text-align:center}
+  .method-btn.sel{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}
+  .modal-confirm{width:100%;padding:12px;border-radius:8px;border:none;background:var(--green);color:#000;cursor:pointer;font-size:14px;font-family:'Noto Sans Thai',sans-serif;font-weight:600;transition:all .15s}
+  .modal-confirm:hover{background:#3edd9a}
+  .modal-confirm:disabled{opacity:.4;cursor:not-allowed}
+  .modal-cancel{width:100%;padding:8px;border-radius:8px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:13px;font-family:'Noto Sans Thai',sans-serif;margin-top:6px}
+  .receipt-lines{font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);background:var(--bg);border-radius:8px;padding:14px;margin:10px 0;max-height:180px;overflow-y:auto;line-height:1.8}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .loading-box{text-align:center;padding:40px;color:var(--text3);font-size:13px}
+  .hidden{display:none!important}
+  .err-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--red-dim);border:1px solid var(--red);color:var(--red);padding:10px 20px;border-radius:8px;font-size:13px;z-index:200;animation:fadeIn .2s}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <span class="topbar-brand">☕ CAFÉ POS</span>
+    <div class="nav">
+      <button class="nav-btn active" onclick="showPage('pos')">รับออเดอร์</button>
+      <button class="nav-btn" onclick="showPage('kds')" id="nav-kds">หน้าบาร์<span class="badge-count hidden" id="kds-badge">0</span></button>
+      <button class="nav-btn" onclick="showPage('report')">รายงาน</button>
+    </div>
+    <div class="topbar-right">
+      <div class="conn-dot off" id="conn-dot" title="สถานะการเชื่อมต่อ"></div>
+      <span class="topbar-time" id="clock"></span>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="page-pos">
+      <div class="menu-panel">
+        <div class="cat-tabs" id="cat-tabs"></div>
+        <div id="menu-grid" class="menu-grid"></div>
+      </div>
+      <div class="order-panel">
+        <div class="order-header">
+          <span class="order-title">รายการสั่ง</span>
+          <span class="order-num" id="order-num">—</span>
+        </div>
+        <div class="order-items" id="order-items">
+          <div class="order-empty"><span style="font-size:28px">☕</span><span>เลือกเมนูจากด้านซ้าย</span></div>
+        </div>
+        <div class="order-footer">
+          <textarea class="note-input" id="order-note" placeholder="หมายเหตุ เช่น หวานน้อย, ไม่แข็ง..."></textarea>
+          <div class="subtotal-row"><span>รายการ</span><span id="item-count">0 รายการ</span></div>
+          <div class="total-row"><span>รวม</span><span id="total-display">฿0</span></div>
+          <div class="pay-btns">
+            <button class="pay-btn" onclick="openPayment('cash')">💵 เงินสด</button>
+            <button class="pay-btn" onclick="openPayment('qr')">📱 QR</button>
+            <button class="pay-btn primary" id="pay-main-btn" onclick="openPayment('')">ชำระเงิน</button>
+          </div>
+          <button class="clear-btn" onclick="clearOrder()">ล้างรายการ</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-kds" class="hidden">
+      <div class="kds-header">
+        <span style="font-size:14px;color:var(--text2)">คิวเครื่องดื่ม</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text3)" id="kds-count">0 รายการรอ</span>
+      </div>
+      <div class="kds-grid" id="kds-grid"><div class="kds-empty">ไม่มีคิวรอ ☕</div></div>
+    </div>
+
+    <div id="page-report" class="hidden">
+      <div class="report-toolbar">
+        <input type="date" class="date-input" id="report-date">
+        <button class="refresh-btn" onclick="loadReport()">โหลดรายงาน</button>
+      </div>
+      <div class="report-grid" id="stat-cards"><div class="loading-box"><span class="spinner"></span>กำลังโหลด...</div></div>
+      <div class="report-cols">
+        <div class="report-box"><div class="section-title">เมนูขายดี (7 วัน)</div><div id="top-items"><div class="loading-box"><span class="spinner"></span></div></div></div>
+        <div class="report-box"><div class="section-title">ยอดขายรายชั่วโมง</div><div class="chart-wrap" id="hourly-chart"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-overlay" class="hidden"></div>
+
+<script>
+// ─── CONFIG ────────────────────────────────────────────────
+const API = 'https://cafe-pos-api.onrender.com';
+const WS_URL = API.replace(/^http/, 'ws') + '/ws';
+
+// ─── STATE ─────────────────────────────────────────────────
+let menuItems = [];
+let activeCat = '';
+let cart = [];
+let pendingOrders = [];
+let ws = null;
+let orderCounter = 1;
+
+// ─── CLOCK ─────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('th-TH', { hour12: false });
+}, 1000);
+
+// ─── API HELPERS ───────────────────────────────────────────
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function showErr(msg) {
+  const t = document.createElement('div');
+  t.className = 'err-toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ─── WEBSOCKET ─────────────────────────────────────────────
+function connectWS() {
+  try {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => setConn(true);
+    ws.onclose = () => { setConn(false); setTimeout(connectWS, 3000); };
+    ws.onerror = () => setConn(false);
+    ws.onmessage = e => handleWS(JSON.parse(e.data));
+  } catch { setConn(false); setTimeout(connectWS, 5000); }
+}
+
+function setConn(ok) {
+  document.getElementById('conn-dot').classList.toggle('off', !ok);
+}
+
+function handleWS(msg) {
+  if (msg.type === 'NEW_ORDER') {
+    pendingOrders.unshift(msg.order);
+    updateKDSBadge();
+    if (document.getElementById('page-kds').style.display !== 'none' &&
+        !document.getElementById('page-kds').classList.contains('hidden')) {
+      renderKDSCard(msg.order, true);
+    }
+  }
+  if (msg.type === 'ORDER_STATUS') {
+    pendingOrders = pendingOrders.filter(o => o.id !== msg.id);
+    updateKDSBadge();
+    const card = document.getElementById('kds-card-' + msg.id);
+    if (card) card.remove();
+    checkKDSEmpty();
+  }
+}
+
+// ─── MENU ──────────────────────────────────────────────────
+async function loadMenu() {
+  try {
+    menuItems = await api('/api/menu');
+    const cats = [...new Set(menuItems.map(m => m.category))];
+    if (!activeCat) activeCat = cats[0];
+    renderCatTabs(cats);
+    renderMenuGrid();
+    setConn(true);
+  } catch (e) {
+    showErr('โหลดเมนูไม่ได้ — ตรวจสอบ API URL');
+    setConn(false);
+  }
+}
+
+function renderCatTabs(cats) {
+  document.getElementById('cat-tabs').innerHTML = cats.map(c =>
+    `<button class="cat-tab${c === activeCat ? ' active' : ''}" onclick="setCat('${c}')">${c}</button>`
+  ).join('');
+}
+
+function renderMenuGrid() {
+  const items = menuItems.filter(m => m.category === activeCat);
+  document.getElementById('menu-grid').innerHTML = items.map(m =>
+    `<div class="menu-item" onclick="addItem('${m.id}')">
+      <span class="item-icon">${m.icon || '☕'}</span>
+      <div class="item-name">${m.name}</div>
+      <div class="item-price">฿${m.price}</div>
+    </div>`
+  ).join('');
+}
+
+function setCat(c) { activeCat = c; renderCatTabs([...new Set(menuItems.map(m => m.category))]); renderMenuGrid(); }
+
+// ─── CART ──────────────────────────────────────────────────
+function addItem(id) {
+  const item = menuItems.find(m => m.id === id);
+  const ex = cart.find(c => c.id === id);
+  if (ex) ex.qty++;
+  else cart.push({ ...item, qty: 1 });
+  renderCart();
+}
+
+function changeQty(id, d) {
+  const i = cart.findIndex(c => c.id === id);
+  if (i < 0) return;
+  cart[i].qty += d;
+  if (cart[i].qty <= 0) cart.splice(i, 1);
+  renderCart();
+}
+
+function renderCart() {
+  const el = document.getElementById('order-items');
+  if (!cart.length) {
+    el.innerHTML = `<div class="order-empty"><span style="font-size:28px">☕</span><span>เลือกเมนูจากด้านซ้าย</span></div>`;
+    document.getElementById('item-count').textContent = '0 รายการ';
+    document.getElementById('total-display').textContent = '฿0';
+    return;
+  }
+  el.innerHTML = cart.map(c =>
+    `<div class="order-row">
+      <div class="qty-ctrl">
+        <button class="qty-btn" onclick="changeQty('${c.id}',-1)">−</button>
+        <span class="qty-num">${c.qty}</span>
+        <button class="qty-btn" onclick="changeQty('${c.id}',1)">+</button>
+      </div>
+      <span class="item-row-name">${c.name}</span>
+      <span class="item-row-price">฿${c.price * c.qty}</span>
+    </div>`
+  ).join('');
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const count = cart.reduce((s, c) => s + c.qty, 0);
+  document.getElementById('item-count').textContent = `${count} รายการ`;
+  document.getElementById('total-display').textContent = `฿${total}`;
+}
+
+function clearOrder() {
+  if (!cart.length) return;
+  if (confirm('ล้างรายการทั้งหมด?')) { cart = []; renderCart(); }
+}
+
+// ─── PAYMENT ───────────────────────────────────────────────
+function openPayment(pre) {
+  if (!cart.length) return;
+  const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const ov = document.getElementById('modal-overlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `
+    <div class="modal">
+      <h3>ชำระเงิน</h3>
+      <div class="modal-total">฿${total}</div>
+      <div class="modal-methods">
+        <div class="method-btn${pre==='cash'?' sel':''}" data-method="cash" onclick="selMethod(this)">💵 เงินสด</div>
+        <div class="method-btn${pre==='qr'?' sel':''}" data-method="qr" onclick="selMethod(this)">📱 QR</div>
+        <div class="method-btn" data-method="card" onclick="selMethod(this)">💳 บัตร</div>
+        <div class="method-btn" data-method="wallet" onclick="selMethod(this)">📲 Wallet</div>
+      </div>
+      <button class="modal-confirm" id="confirm-btn" onclick="confirmPayment(${total})">ยืนยันชำระเงิน</button>
+      <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+    </div>`;
+}
+
+function selMethod(el) {
+  document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+async function confirmPayment(total) {
+  const sel = document.querySelector('.method-btn.sel');
+  const methodMap = { cash: 'เงินสด', qr: 'QR', card: 'บัตร', wallet: 'Wallet' };
+  const method = sel ? methodMap[sel.dataset.method] || 'เงินสด' : 'เงินสด';
+  const note = document.getElementById('order-note').value;
+
+  const btn = document.getElementById('confirm-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>กำลังบันทึก...';
+
+  try {
+    const order = await api('/api/orders', {
+      method: 'POST',
+      body: { items: cart, total, payment_method: method, note }
+    });
+
+    const lines = cart.map(c =>
+      `${c.name.padEnd(16,' ')} x${c.qty}  ฿${c.price * c.qty}`
+    ).join('\n');
+
+    document.getElementById('modal-overlay').innerHTML = `
+      <div class="modal">
+        <div style="font-size:36px;text-align:center;margin:8px 0">✅</div>
+        <h3 style="text-align:center">ชำระเงินสำเร็จ</h3>
+        <div class="receipt-lines">${order.order_number}\n${'─'.repeat(26)}\n${lines}\n${'─'.repeat(26)}\nรวม    ฿${total}\nวิธี    ${method}\n${new Date().toLocaleString('th-TH')}</div>
+        <button class="modal-confirm" onclick="closeAndNext()">รับออเดอร์ถัดไป</button>
+      </div>`;
+    orderCounter++;
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'ยืนยันชำระเงิน';
+    showErr('บันทึกออเดอร์ไม่สำเร็จ: ' + e.message);
+  }
+}
+
+function closeAndNext() {
+  cart = [];
+  document.getElementById('order-note').value = '';
+  renderCart();
+  closeModal();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+
+// ─── KDS ───────────────────────────────────────────────────
+async function loadKDS() {
+  try {
+    const data = await api('/api/orders?status=pending');
+    pendingOrders = data;
+    updateKDSBadge();
+    renderKDSFull();
+  } catch { showErr('โหลด KDS ไม่ได้'); }
+}
+
+function renderKDSFull() {
+  const grid = document.getElementById('kds-grid');
+  if (!pendingOrders.length) {
+    grid.innerHTML = '<div class="kds-empty">ไม่มีคิวรอ ☕</div>';
+    document.getElementById('kds-count').textContent = '0 รายการรอ';
+    return;
+  }
+  grid.innerHTML = '';
+  document.getElementById('kds-count').textContent = `${pendingOrders.length} รายการรอ`;
+  pendingOrders.forEach(o => renderKDSCard(o, false));
+}
+
+function renderKDSCard(order, isNew) {
+  const grid = document.getElementById('kds-grid');
+  const empty = grid.querySelector('.kds-empty');
+  if (empty) empty.remove();
+
+  const mins = Math.floor((Date.now() - new Date(order.created_at)) / 60000);
+  const urgent = mins >= 5;
+  const items = order.order_items || order.items || [];
+
+  const card = document.createElement('div');
+  card.className = `kds-card${urgent ? ' urgent' : ''}${isNew ? ' new' : ''}`;
+  card.id = 'kds-card-' + order.id;
+  card.innerHTML = `
+    <div class="kds-card-header">
+      <span class="kds-order-num">${order.order_number || order.id.slice(-6)}</span>
+      <span class="kds-time${urgent ? ' urgent' : ''}" id="kds-time-${order.id}">${mins < 1 ? 'เพิ่งสั่ง' : mins + ' นาที'}</span>
+    </div>
+    <div class="kds-items">
+      ${items.map(i => {
+        const name = i.menu_item?.name || i.name;
+        const qty  = i.quantity || i.qty;
+        return `<div class="kds-item-row"><span class="kds-qty">x${qty}</span><span>${name}</span></div>`;
+      }).join('')}
+    </div>
+    ${order.note ? `<div class="kds-note">📝 ${order.note}</div>` : ''}
+    <button class="kds-done-btn" onclick="markDone('${order.id}')">✓ เสร็จแล้ว</button>`;
+  grid.prepend(card);
+  document.getElementById('kds-count').textContent = `${pendingOrders.length} รายการรอ`;
+}
+
+async function markDone(id) {
+  try {
+    await api(`/api/orders/${id}/status`, { method: 'PATCH', body: { status: 'done' } });
+    pendingOrders = pendingOrders.filter(o => o.id !== id);
+    const card = document.getElementById('kds-card-' + id);
+    if (card) card.remove();
+    updateKDSBadge();
+    checkKDSEmpty();
+  } catch { showErr('อัปเดตสถานะไม่สำเร็จ'); }
+}
+
+function checkKDSEmpty() {
+  const grid = document.getElementById('kds-grid');
+  if (!grid.children.length) {
+    grid.innerHTML = '<div class="kds-empty">ไม่มีคิวรอ ☕</div>';
+    document.getElementById('kds-count').textContent = '0 รายการรอ';
+  }
+}
+
+function updateKDSBadge() {
+  const n = pendingOrders.length;
+  const badge = document.getElementById('kds-badge');
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n === 0);
+}
+
+// Refresh KDS times every minute
+setInterval(() => {
+  pendingOrders.forEach(o => {
+    const el = document.getElementById('kds-time-' + o.id);
+    if (!el) return;
+    const mins = Math.floor((Date.now() - new Date(o.created_at)) / 60000);
+    el.textContent = mins < 1 ? 'เพิ่งสั่ง' : mins + ' นาที';
+    el.classList.toggle('urgent', mins >= 5);
+    const card = document.getElementById('kds-card-' + o.id);
+    if (card) card.classList.toggle('urgent', mins >= 5);
+  });
+}, 60000);
+
+// ─── REPORT ────────────────────────────────────────────────
+async function loadReport() {
+  const date = document.getElementById('report-date').value ||
+    new Date().toISOString().slice(0, 10);
+
+  document.getElementById('stat-cards').innerHTML =
+    '<div class="loading-box"><span class="spinner"></span>กำลังโหลด...</div>';
+
+  try {
+    const [summary, topItems] = await Promise.all([
+      api(`/api/reports/summary?date=${date}`),
+      api('/api/reports/top-items?days=7')
+    ]);
+
+    document.getElementById('stat-cards').innerHTML = `
+      <div class="stat-card"><div class="stat-label">ยอดวันนี้</div><div class="stat-val amber">฿${summary.total.toLocaleString()}</div><div class="stat-sub">${summary.count} บิล</div></div>
+      <div class="stat-card"><div class="stat-label">เฉลี่ย/บิล</div><div class="stat-val">฿${summary.avg}</div></div>
+      <div class="stat-card"><div class="stat-label">คิวรอทำ</div><div class="stat-val">${pendingOrders.length}</div></div>
+      <div class="stat-card"><div class="stat-label">บิลสำเร็จ</div><div class="stat-val green">${summary.count}</div></div>`;
+
+    const maxQty = topItems[0]?.qty || 1;
+    document.getElementById('top-items').innerHTML = topItems.length
+      ? topItems.map(i => `
+          <div class="top-item-row">
+            <span>${i.name}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--amber)">${i.qty} แก้ว</span>
+          </div>
+          <div class="top-bar" style="width:${Math.round(i.qty / maxQty * 100)}%"></div>`)
+          .join('')
+      : '<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">ยังไม่มีข้อมูล</div>';
+
+    const hours = summary.hourly.slice(6, 22);
+    const maxH = Math.max(...hours, 1);
+    document.getElementById('hourly-chart').innerHTML = hours.map((v, i) => `
+      <div class="chart-bar-wrap">
+        <div class="chart-bar" style="height:${Math.round(v / maxH * 90)}px"></div>
+        <span class="chart-label">${i + 6}</span>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('stat-cards').innerHTML =
+      `<div style="color:var(--red);font-size:13px;padding:20px">โหลดรายงานไม่สำเร็จ: ${e.message}</div>`;
+  }
+}
+
+// ─── PAGES ─────────────────────────────────────────────────
+function showPage(p) {
+  ['pos', 'kds', 'report'].forEach(id => {
+    document.getElementById('page-' + id).classList.toggle('hidden', id !== p);
+  });
+  document.querySelectorAll('.nav-btn').forEach((b, i) => {
+    b.classList.toggle('active', ['pos', 'kds', 'report'][i] === p);
+  });
+  if (p === 'kds') loadKDS();
+  if (p === 'report') loadReport();
+}
+
+// ─── INIT ──────────────────────────────────────────────────
+document.getElementById('report-date').value = new Date().toISOString().slice(0, 10);
+loadMenu();
+connectWS();
+</script>
+</body>
+</html>
