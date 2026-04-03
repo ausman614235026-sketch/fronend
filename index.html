@@ -128,6 +128,33 @@
   .chart-bar{width:100%;background:var(--amber-dim);border-radius:3px 3px 0 0;border:1px solid var(--amber);min-height:3px;transition:height .5s}
   .chart-label{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
 
+
+  /* ── MENU MANAGE ── */
+  #page-menu{padding:20px;overflow-y:auto;background:var(--bg)}
+  .menu-manage-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .add-btn{padding:8px 18px;border-radius:8px;border:none;background:var(--amber);color:#000;cursor:pointer;font-size:13px;font-family:'Noto Sans Thai',sans-serif;font-weight:600;transition:all .15s}
+  .add-btn:hover{background:var(--amber2)}
+  .manage-table{width:100%;border-collapse:collapse}
+  .manage-table th{text-align:left;font-size:12px;color:var(--text3);padding:8px 12px;border-bottom:1px solid var(--border);font-weight:400}
+  .manage-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+  .manage-table tr:hover td{background:var(--bg2)}
+  .manage-table .icon-cell{font-size:20px;width:40px}
+  .toggle-btn{width:36px;height:20px;border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .2s}
+  .toggle-btn.on{background:var(--green)}
+  .toggle-btn.off{background:var(--border2)}
+  .toggle-btn::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;transition:left .2s}
+  .toggle-btn.on::after{left:19px}
+  .toggle-btn.off::after{left:3px}
+  .edit-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:12px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s;margin-right:4px}
+  .edit-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .del-btn{padding:4px 10px;border-radius:6px;border:1px solid var(--red-dim);background:transparent;color:var(--text3);cursor:pointer;font-size:12px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .del-btn:hover{border-color:var(--red);color:var(--red)}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .form-group{display:flex;flex-direction:column;gap:4px}
+  .form-label{font-size:12px;color:var(--text3)}
+  .form-input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:13px;font-family:'Noto Sans Thai',sans-serif}
+  .form-input:focus{outline:none;border-color:var(--amber)}
+
   /* Modal */
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;animation:fadeIn .15s}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
@@ -157,6 +184,7 @@
       <button class="nav-btn active" onclick="showPage('pos')">รับออเดอร์</button>
       <button class="nav-btn" onclick="showPage('kds')" id="nav-kds">หน้าบาร์<span class="badge-count hidden" id="kds-badge">0</span></button>
       <button class="nav-btn" onclick="showPage('report')">รายงาน</button>
+      <button class="nav-btn" onclick="showPage('menu')">จัดการเมนู</button>
     </div>
     <div class="topbar-right">
       <div class="conn-dot off" id="conn-dot" title="สถานะการเชื่อมต่อ"></div>
@@ -212,6 +240,27 @@
       </div>
     </div>
   </div>
+
+    <div id="page-menu" class="hidden">
+      <div class="menu-manage-header">
+        <span style="font-size:14px;color:var(--text2)">จัดการเมนูทั้งหมด</span>
+        <button class="add-btn" onclick="openMenuForm()">+ เพิ่มเมนูใหม่</button>
+      </div>
+      <table class="manage-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>ชื่อเมนู</th>
+            <th>หมวด</th>
+            <th>ราคา</th>
+            <th>เปิด/ปิด</th>
+            <th>จัดการ</th>
+          </tr>
+        </thead>
+        <tbody id="menu-manage-body"></tbody>
+      </table>
+    </div>
+
 <div id="modal-overlay" class="hidden"></div>
 </div>
 
@@ -574,16 +623,119 @@ async function loadReport() {
   }
 }
 
+
+// ─── MENU MANAGEMENT ───────────────────────────────────────
+async function loadMenuManage() {
+  try {
+    const items = await api('/api/menu?all=true');
+    menuItems = items;
+    renderMenuManageTable(items);
+  } catch { showErr('โหลดเมนูไม่สำเร็จ'); }
+}
+
+function renderMenuManageTable(items) {
+  const tbody = document.getElementById('menu-manage-body');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:40px">ยังไม่มีเมนู</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(m => `
+    <tr>
+      <td class="icon-cell">${m.icon || '☕'}</td>
+      <td>${m.name}</td>
+      <td style="color:var(--text2)">${m.category}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--amber)">฿${m.price}</td>
+      <td><button class="toggle-btn ${m.active ? 'on' : 'off'}" onclick="toggleMenuItem('${m.id}', ${m.active})" title="${m.active ? 'เปิดอยู่' : 'ปิดอยู่'}"></button></td>
+      <td>
+        <button class="edit-btn" onclick="openMenuForm('${m.id}')">แก้ไข</button>
+        <button class="del-btn" onclick="deleteMenuItem('${m.id}', '${m.name}')">ลบ</button>
+      </td>
+    </tr>`).join('');
+}
+
+function openMenuForm(id) {
+  const item = id ? menuItems.find(m => m.id === id) : null;
+  const ov = document.getElementById('modal-overlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `
+    <div class="modal" style="width:400px">
+      <h3>${item ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่'}</h3>
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label">ชื่อเมนู</label>
+          <input class="form-input" id="f-name" value="${item ? item.name : ''}" placeholder="เช่น Latte ร้อน">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">หมวดหมู่</label>
+          <input class="form-input" id="f-cat" value="${item ? item.category : ''}" placeholder="เช่น กาแฟร้อน">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ราคา (บาท)</label>
+          <input class="form-input" id="f-price" type="number" value="${item ? item.price : ''}" placeholder="60">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">ไอคอน (Emoji)</label>
+          <input class="form-input" id="f-icon" value="${item ? item.icon : '☕'}" placeholder="☕">
+        </div>
+      </div>
+      <button class="modal-confirm" onclick="saveMenuItem('${id || ''}')">บันทึก</button>
+      <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+    </div>`;
+}
+
+async function saveMenuItem(id) {
+  const name = document.getElementById('f-name').value.trim();
+  const category = document.getElementById('f-cat').value.trim();
+  const price = parseInt(document.getElementById('f-price').value);
+  const icon = document.getElementById('f-icon').value.trim() || '☕';
+
+  if (!name || !category || !price) { showErr('กรุณากรอกข้อมูลให้ครบ'); return; }
+
+  try {
+    if (id) {
+      await api(`/api/menu/${id}`, { method: 'PATCH', body: { name, category, price, icon } });
+    } else {
+      await api('/api/menu', { method: 'POST', body: { name, category, price, icon, active: true } });
+    }
+    closeModal();
+    loadMenuManage();
+    loadMenu();
+    showErr('✅ บันทึกสำเร็จ');
+  } catch(e) { showErr('บันทึกไม่สำเร็จ: ' + e.message); }
+}
+
+async function toggleMenuItem(id, current) {
+  try {
+    await api(`/api/menu/${id}`, { method: 'PATCH', body: { active: !current } });
+    loadMenuManage();
+    loadMenu();
+  } catch { showErr('อัพเดตไม่สำเร็จ'); }
+}
+
+async function deleteMenuItem(id, name) {
+  if (!confirm('ลบ "' + name + '" ออกจากเมนู?')) return;
+  try {
+    await api(`/api/menu/${id}`, { method: 'DELETE' });
+    loadMenuManage();
+    loadMenu();
+  } catch(e) { showErr('ลบไม่สำเร็จ: ' + e.message); }
+}
+
 // ─── PAGES ─────────────────────────────────────────────────
 function showPage(p) {
-  ['pos', 'kds', 'report'].forEach(id => {
+  ['pos', 'kds', 'report', 'menu'].forEach(id => {
     document.getElementById('page-' + id).classList.toggle('hidden', id !== p);
   });
   document.querySelectorAll('.nav-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['pos', 'kds', 'report'][i] === p);
+    b.classList.toggle('active', ['pos', 'kds', 'report', 'menu'][i] === p);
   });
   if (p === 'kds') loadKDS();
   if (p === 'report') loadReport();
+  if (p === 'menu') loadMenuManage();
 }
 
 // ─── INIT ──────────────────────────────────────────────────
