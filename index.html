@@ -430,6 +430,26 @@ function selectRole(role) {
   document.getElementById('login-err').textContent = '';
 }
 
+let promotions = [];
+
+async function loadPromotions() {
+  try {
+    promotions = await api('/api/promotions');
+    renderPromoButtons();
+  } catch(e) {
+    console.error('loadPromotions error:', e);
+    setTimeout(loadPromotions, 3000);
+  }
+}
+
+function renderPromoButtons() {
+  const row = document.getElementById('discount-row');
+  if (!row) return;
+  row.innerHTML = promotions.map(p =>
+    `<button class="disc-btn" id="promo-${p.id}" onclick="applyPromo('${p.id}')">${p.name}</button>`
+  ).join('') + `<button class="disc-btn" onclick="applyDiscount(null)">ไม่มีส่วนลด</button>`;
+}
+
 function doLogin() {
   if (!selectedRole) {
     document.getElementById('login-err').textContent = 'กรุณาเลือกบทบาทก่อน';
