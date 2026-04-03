@@ -129,6 +129,31 @@
   .chart-label{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace}
 
 
+
+  /* ── LOGIN ── */
+  .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
+  .login-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:36px;width:320px;max-width:90vw;text-align:center}
+  .login-logo{font-size:36px;margin-bottom:8px}
+  .login-title{font-family:'DM Mono',monospace;font-size:16px;color:var(--amber);margin-bottom:24px;letter-spacing:.08em}
+  .role-btns{display:grid;gap:10px;margin-bottom:20px}
+  .role-btn{padding:14px;border-radius:10px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;font-size:14px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s;text-align:left;display:flex;align-items:center;gap:12px}
+  .role-btn:hover{border-color:var(--amber);background:var(--amber-dim)}
+  .role-btn.sel{border-color:var(--amber);background:var(--amber-dim);color:var(--amber)}
+  .role-icon{font-size:24px;width:36px;text-align:center}
+  .role-info{display:flex;flex-direction:column;gap:2px}
+  .role-name{font-weight:600;font-size:14px}
+  .role-desc{font-size:11px;color:var(--text3)}
+  .role-btn.sel .role-desc{color:var(--amber2)}
+  .pin-wrap{margin-bottom:16px}
+  .pin-label{font-size:12px;color:var(--text3);margin-bottom:8px}
+  .pin-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-size:20px;font-family:'DM Mono',monospace;text-align:center;letter-spacing:8px}
+  .pin-input:focus{outline:none;border-color:var(--amber)}
+  .login-btn{width:100%;padding:12px;border-radius:8px;border:none;background:var(--amber);color:#000;cursor:pointer;font-size:14px;font-family:'Noto Sans Thai',sans-serif;font-weight:600;transition:all .15s}
+  .login-btn:hover{background:var(--amber2)}
+  .login-err{color:var(--red);font-size:12px;margin-top:8px;min-height:18px}
+  .user-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text3);cursor:pointer;padding:4px 8px;border-radius:6px;transition:background .15s}
+  .user-badge:hover{background:var(--bg3);color:var(--text)}
+
   /* ── MENU MANAGE ── */
   #page-menu{padding:20px;overflow-y:auto;background:var(--bg)}
   .menu-manage-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
@@ -177,7 +202,37 @@
 </style>
 </head>
 <body>
-<div class="app">
+
+<div id="login-screen" class="login-screen">
+  <div class="login-box">
+    <div class="login-logo">☕</div>
+    <div class="login-title">CAFÉ POS</div>
+    <div class="role-btns">
+      <div class="role-btn" onclick="selectRole('staff')" id="role-staff">
+        <span class="role-icon">👨‍💼</span>
+        <div class="role-info">
+          <span class="role-name">แคชเชียร์ / บาร์</span>
+          <span class="role-desc">รับออเดอร์ และหน้าบาร์</span>
+        </div>
+      </div>
+      <div class="role-btn" onclick="selectRole('admin')" id="role-admin">
+        <span class="role-icon">👑</span>
+        <div class="role-info">
+          <span class="role-name">Admin (เจ้าของร้าน)</span>
+          <span class="role-desc">จัดการเมนู รายงาน และทุกอย่าง</span>
+        </div>
+      </div>
+    </div>
+    <div class="pin-wrap" id="pin-wrap" style="display:none">
+      <div class="pin-label">ใส่ PIN</div>
+      <input class="pin-input" id="pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
   <div class="topbar">
     <span class="topbar-brand">☕ CAFÉ POS</span>
     <div class="nav">
@@ -189,6 +244,7 @@
     <div class="topbar-right">
       <div class="conn-dot off" id="conn-dot" title="สถานะการเชื่อมต่อ"></div>
       <span class="topbar-time" id="clock"></span>
+      <div class="user-badge" onclick="logout()" id="user-badge" title="ออกจากระบบ"></div>
     </div>
   </div>
 
@@ -276,6 +332,72 @@ let cart = [];
 let pendingOrders = [];
 let ws = null;
 let orderCounter = 1;
+
+
+// ─── AUTH ───────────────────────────────────────────────────
+const STAFF_PIN = '1234';  // PIN แคชเชียร์
+const ADMIN_PIN = '0000';  // PIN Admin — เปลี่ยนได้เลยครับ
+
+let currentRole = null;
+let selectedRole = null;
+
+function selectRole(role) {
+  selectedRole = role;
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('role-' + role).classList.add('sel');
+  document.getElementById('pin-wrap').style.display = 'block';
+  document.getElementById('pin-input').focus();
+  document.getElementById('login-err').textContent = '';
+}
+
+function doLogin() {
+  if (!selectedRole) {
+    document.getElementById('login-err').textContent = 'กรุณาเลือกบทบาทก่อน';
+    return;
+  }
+  const pin = document.getElementById('pin-input').value;
+  const correct = selectedRole === 'admin' ? ADMIN_PIN : STAFF_PIN;
+  if (pin !== correct) {
+    document.getElementById('login-err').textContent = 'PIN ไม่ถูกต้อง';
+    document.getElementById('pin-input').value = '';
+    return;
+  }
+  currentRole = selectedRole;
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-app').style.display = 'grid';
+
+  // Show/hide nav based on role
+  applyRoleUI();
+  loadMenu();
+  connectWS();
+}
+
+function applyRoleUI() {
+  const isAdmin = currentRole === 'admin';
+  const navBtns = document.querySelectorAll('.nav-btn');
+  // report = index 2, menu = index 3
+  navBtns[2].style.display = isAdmin ? '' : 'none'; // รายงาน
+  navBtns[3].style.display = isAdmin ? '' : 'none'; // จัดการเมนู
+
+  const badge = document.getElementById('user-badge');
+  badge.innerHTML = currentRole === 'admin' ? '👑 Admin' : '👨‍💼 แคชเชียร์';
+
+  // Init report date
+  document.getElementById('report-date').value = new Date().toISOString().slice(0, 10);
+}
+
+function logout() {
+  if (!confirm('ออกจากระบบ?')) return;
+  currentRole = null;
+  selectedRole = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('pin-input').value = '';
+  document.getElementById('login-err').textContent = '';
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('pin-wrap').style.display = 'none';
+  showPage('pos');
+}
 
 // ─── CLOCK ─────────────────────────────────────────────────
 setInterval(() => {
@@ -797,9 +919,7 @@ function showPage(p) {
 }
 
 // ─── INIT ──────────────────────────────────────────────────
-document.getElementById('report-date').value = new Date().toISOString().slice(0, 10);
-loadMenu();
-connectWS();
+// Init handled by login
 </script>
 </body>
 </html>
