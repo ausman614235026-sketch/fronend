@@ -130,6 +130,33 @@
 
 
 
+
+  /* ── CUSTOMER & DISCOUNT ── */
+  .customer-bar{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:border-color .15s}
+  .customer-bar:hover{border-color:var(--amber)}
+  .customer-bar.linked{border-color:var(--green);background:var(--green-dim)}
+  .customer-info{flex:1;font-size:12px}
+  .customer-name{font-weight:500;color:var(--text)}
+  .customer-pts{color:var(--amber);font-family:'DM Mono',monospace;font-size:11px}
+  .discount-bar{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px}
+  .discount-row{display:flex;gap:6px;flex-wrap:wrap}
+  .disc-btn{padding:5px 10px;border-radius:6px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;font-size:11px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .disc-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .disc-btn.active{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}
+  .disc-info{font-size:11px;color:var(--green);margin-top:4px;font-family:'DM Mono',monospace}
+  .points-redeem{font-size:11px;color:var(--text3);margin-top:4px}
+
+  /* Customer page */
+  #page-customers{padding:20px;overflow-y:auto;background:var(--bg)}
+  .cust-search{display:flex;gap:10px;margin-bottom:20px}
+  .cust-search input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;font-family:'Noto Sans Thai',sans-serif}
+  .cust-search input:focus{outline:none;border-color:var(--amber)}
+  .cust-table{width:100%;border-collapse:collapse}
+  .cust-table th{text-align:left;font-size:12px;color:var(--text3);padding:8px 12px;border-bottom:1px solid var(--border);font-weight:400}
+  .cust-table td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px}
+  .cust-table tr:hover td{background:var(--bg2);cursor:pointer}
+  .points-badge{background:var(--amber-dim);color:var(--amber);border-radius:10px;padding:2px 8px;font-family:'DM Mono',monospace;font-size:12px}
+
   /* ── LOGIN ── */
   .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
   .login-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:36px;width:320px;max-width:90vw;text-align:center}
@@ -240,6 +267,7 @@
       <button class="nav-btn" onclick="showPage('kds')" id="nav-kds">หน้าบาร์<span class="badge-count hidden" id="kds-badge">0</span></button>
       <button class="nav-btn" onclick="showPage('report')">รายงาน</button>
       <button class="nav-btn" onclick="showPage('menu')">จัดการเมนู</button>
+      <button class="nav-btn" onclick="showPage('customers')">ลูกค้า</button>
     </div>
     <div class="topbar-right">
       <div class="conn-dot off" id="conn-dot" title="สถานะการเชื่อมต่อ"></div>
@@ -263,8 +291,28 @@
           <div class="order-empty"><span style="font-size:28px">☕</span><span>เลือกเมนูจากด้านซ้าย</span></div>
         </div>
         <div class="order-footer">
+          <div class="customer-bar" id="customer-bar" onclick="openCustomerSearch()">
+            <span style="font-size:16px">👤</span>
+            <div class="customer-info">
+              <div class="customer-name" id="customer-bar-name">เพิ่มข้อมูลลูกค้า</div>
+              <div class="customer-pts" id="customer-bar-pts"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text3)" id="customer-bar-action">แตะเพื่อเลือก</span>
+          </div>
+          <div class="discount-bar">
+            <div class="discount-row" id="discount-row">
+              <button class="disc-btn" onclick="applyDiscount('pct',5)">ลด 5%</button>
+              <button class="disc-btn" onclick="applyDiscount('pct',10)">ลด 10%</button>
+              <button class="disc-btn" onclick="applyDiscount('pct',15)">ลด 15%</button>
+              <button class="disc-btn" onclick="applyDiscount('buy5get1')">ซื้อ 5 แถม 1</button>
+              <button class="disc-btn" onclick="applyDiscount(null)">ไม่มีส่วนลด</button>
+            </div>
+            <div class="disc-info" id="disc-info"></div>
+            <div class="points-redeem" id="points-redeem"></div>
+          </div>
           <textarea class="note-input" id="order-note" placeholder="หมายเหตุ เช่น หวานน้อย, ไม่แข็ง..."></textarea>
           <div class="subtotal-row"><span>รายการ</span><span id="item-count">0 รายการ</span></div>
+          <div class="subtotal-row" id="discount-row-display" style="display:none;color:var(--green)"><span>ส่วนลด</span><span id="discount-display"></span></div>
           <div class="total-row"><span>รวม</span><span id="total-display">฿0</span></div>
           <div class="pay-btns">
             <button class="pay-btn" onclick="openPayment('cash')">💵 เงินสด</button>
@@ -314,6 +362,23 @@
           </tr>
         </thead>
         <tbody id="menu-manage-body"></tbody>
+      </table>
+    </div>
+
+
+    <div id="page-customers" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <span style="font-size:14px;color:var(--text2)">ข้อมูลลูกค้า</span>
+        <button class="add-btn" onclick="openNewCustomer()">+ เพิ่มลูกค้าใหม่</button>
+      </div>
+      <div class="cust-search">
+        <input id="cust-search-input" placeholder="ค้นหาด้วยเบอร์โทร..." oninput="searchCustomers(this.value)">
+      </div>
+      <table class="cust-table">
+        <thead><tr>
+          <th>ชื่อ</th><th>เบอร์โทร</th><th>แต้ม</th><th>สมาชิกตั้งแต่</th><th>จัดการ</th>
+        </tr></thead>
+        <tbody id="cust-table-body"></tbody>
       </table>
     </div>
 
@@ -378,6 +443,7 @@ function applyRoleUI() {
   // report = index 2, menu = index 3
   navBtns[2].style.display = isAdmin ? '' : 'none'; // รายงาน
   navBtns[3].style.display = isAdmin ? '' : 'none'; // จัดการเมนู
+  navBtns[4].style.display = isAdmin ? '' : 'none'; // ลูกค้า
 
   const badge = document.getElementById('user-badge');
   badge.innerHTML = currentRole === 'admin' ? '👑 Admin' : '👨‍💼 แคชเชียร์';
@@ -575,9 +641,19 @@ async function confirmPayment(total) {
   btn.innerHTML = '<span class="spinner"></span>กำลังบันทึก...';
 
   try {
+    const finalTotal = currentDiscount ? total - currentDiscount.amount : total;
     const order = await api('/api/orders', {
       method: 'POST',
-      body: { items: cart, total, payment_method: method, note }
+      body: {
+        items: cart,
+        total: finalTotal,
+        payment_method: method,
+        note,
+        customer_id: currentCustomer ? currentCustomer.id : null,
+        discount_type: currentDiscount ? currentDiscount.type : null,
+        discount_value: currentDiscount ? currentDiscount.value : 0,
+        discount_amount: currentDiscount ? currentDiscount.amount : 0
+      }
     });
 
     const lines = cart.map(c =>
@@ -601,7 +677,16 @@ async function confirmPayment(total) {
 
 function closeAndNext() {
   cart = [];
+  currentCustomer = null;
+  currentDiscount = null;
   document.getElementById('order-note').value = '';
+  document.getElementById('customer-bar').classList.remove('linked');
+  document.getElementById('customer-bar-name').textContent = 'เพิ่มข้อมูลลูกค้า';
+  document.getElementById('customer-bar-pts').textContent = '';
+  document.getElementById('customer-bar-action').textContent = 'แตะเพื่อเลือก';
+  document.getElementById('points-redeem').textContent = '';
+  document.getElementById('disc-info').textContent = '';
+  document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
   renderCart();
   closeModal();
 }
@@ -745,6 +830,252 @@ async function loadReport() {
   }
 }
 
+
+
+// ─── CUSTOMER & DISCOUNT ────────────────────────────────────
+let currentCustomer = null;
+let currentDiscount = null; // {type, value, amount}
+
+function applyDiscount(type, value) {
+  document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
+  if (!type) {
+    currentDiscount = null;
+    document.getElementById('disc-info').textContent = '';
+    document.getElementById('discount-row-display').style.display = 'none';
+    renderCart();
+    return;
+  }
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  let amount = 0;
+  let label = '';
+  if (type === 'pct') {
+    amount = Math.round(subtotal * value / 100);
+    label = `ลด ${value}% = -฿${amount}`;
+    event.target.classList.add('active');
+  } else if (type === 'buy5get1') {
+    const totalQty = cart.reduce((s, c) => s + c.qty, 0);
+    const freeQty = Math.floor(totalQty / 5);
+    if (freeQty > 0) {
+      const cheapest = [...cart].sort((a,b) => a.price - b.price)[0];
+      amount = cheapest.price * freeQty;
+      label = `ซื้อ 5 แถม 1 = -฿${amount}`;
+    } else {
+      label = 'ต้องสั่งอย่างน้อย 5 รายการ';
+    }
+    event.target.classList.add('active');
+  }
+  currentDiscount = { type, value: value||0, amount };
+  document.getElementById('disc-info').textContent = label;
+  renderCart();
+}
+
+// Override renderCart to show discount
+const _origRenderCart = renderCart;
+renderCart = function() {
+  _origRenderCart();
+  if (!cart.length) {
+    document.getElementById('discount-row-display').style.display = 'none';
+    document.getElementById('disc-info').textContent = '';
+    currentDiscount = null;
+    document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
+    return;
+  }
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  if (currentDiscount && currentDiscount.amount > 0) {
+    const finalTotal = subtotal - currentDiscount.amount;
+    document.getElementById('total-display').textContent = `฿${finalTotal}`;
+    document.getElementById('discount-display').textContent = `-฿${currentDiscount.amount}`;
+    document.getElementById('discount-row-display').style.display = 'flex';
+  } else {
+    document.getElementById('discount-row-display').style.display = 'none';
+  }
+  // Show redeemable points
+  if (currentCustomer) {
+    const pts = currentCustomer.points;
+    const redeemable = Math.floor(pts / 100) * 10; // 100 pts = ฿10
+    document.getElementById('points-redeem').textContent =
+      pts > 0 ? `แต้มสะสม ${pts} แต้ม${redeemable > 0 ? ` (แลกส่วนลดได้ ฿${redeemable})` : ''}` : '';
+  }
+};
+
+// Customer search modal
+async function openCustomerSearch() {
+  const ov = document.getElementById('modal-overlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `
+    <div class="modal" style="width:420px">
+      <h3>เลือกลูกค้า</h3>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <input class="form-input" id="cs-search" placeholder="ค้นหาเบอร์โทร..." style="flex:1" oninput="searchInModal(this.value)">
+      </div>
+      <div id="cs-results" style="max-height:240px;overflow-y:auto"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="modal-confirm" style="flex:1" onclick="openNewCustomerInModal()">+ ลูกค้าใหม่</button>
+        ${currentCustomer ? '<button class="pay-btn" style="flex:1" onclick="unlinkCustomer()">ยกเลิกลูกค้า</button>' : ''}
+      </div>
+      <button class="modal-cancel" onclick="closeModal()">ปิด</button>
+    </div>`;
+  searchInModal('');
+}
+
+async function searchInModal(q) {
+  try {
+    const data = await api('/api/customers' + (q ? '?phone=' + encodeURIComponent(q) : ''));
+    const el = document.getElementById('cs-results');
+    if (!data.length) {
+      el.innerHTML = '<div style="color:var(--text3);text-align:center;padding:20px;font-size:13px">ไม่พบลูกค้า</div>';
+      return;
+    }
+    el.innerHTML = data.map(c => `
+      <div onclick="linkCustomer(${JSON.stringify(c).replace(/"/g,'&quot;')})"
+        style="padding:10px;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .15s"
+        onmouseover="this.style.borderColor='var(--amber)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="font-weight:500;font-size:13px">${c.name}</div>
+        <div style="font-size:12px;color:var(--text3)">${c.phone} · <span style="color:var(--amber)">${c.points} แต้ม</span></div>
+      </div>`).join('');
+  } catch { }
+}
+
+function linkCustomer(c) {
+  currentCustomer = c;
+  document.getElementById('customer-bar').classList.add('linked');
+  document.getElementById('customer-bar-name').textContent = c.name;
+  document.getElementById('customer-bar-pts').textContent = c.points + ' แต้ม';
+  document.getElementById('customer-bar-action').textContent = 'เปลี่ยน';
+  closeModal();
+  renderCart();
+}
+
+function unlinkCustomer() {
+  currentCustomer = null;
+  document.getElementById('customer-bar').classList.remove('linked');
+  document.getElementById('customer-bar-name').textContent = 'เพิ่มข้อมูลลูกค้า';
+  document.getElementById('customer-bar-pts').textContent = '';
+  document.getElementById('customer-bar-action').textContent = 'แตะเพื่อเลือก';
+  document.getElementById('points-redeem').textContent = '';
+  closeModal();
+}
+
+function openNewCustomerInModal() {
+  const ov = document.getElementById('modal-overlay');
+  ov.innerHTML = `
+    <div class="modal">
+      <h3>เพิ่มลูกค้าใหม่</h3>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">ชื่อ</label>
+        <input class="form-input" id="nc-name" placeholder="ชื่อลูกค้า">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">เบอร์โทร</label>
+        <input class="form-input" id="nc-phone" placeholder="0812345678" inputmode="numeric">
+      </div>
+      <button class="modal-confirm" onclick="saveNewCustomer()">บันทึก</button>
+      <button class="modal-cancel" onclick="openCustomerSearch()">ย้อนกลับ</button>
+    </div>`;
+}
+
+async function saveNewCustomer() {
+  const name = document.getElementById('nc-name').value.trim();
+  const phone = document.getElementById('nc-phone').value.trim();
+  if (!name || !phone) { showErr('กรุณากรอกชื่อและเบอร์โทร'); return; }
+  try {
+    const c = await api('/api/customers', { method: 'POST', body: { name, phone } });
+    linkCustomer(c);
+  } catch(e) { showErr('บันทึกไม่สำเร็จ: ' + e.message); }
+}
+
+// Customers page
+async function loadCustomers() {
+  try {
+    const data = await api('/api/customers');
+    renderCustomersTable(data);
+  } catch { showErr('โหลดข้อมูลลูกค้าไม่สำเร็จ'); }
+}
+
+function renderCustomersTable(data) {
+  const tbody = document.getElementById('cust-table-body');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:40px">ยังไม่มีลูกค้า</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(c => `
+    <tr onclick="viewCustomer('${c.id}','${c.name}')">
+      <td>${c.name}</td>
+      <td style="font-family:'DM Mono',monospace;color:var(--text2)">${c.phone}</td>
+      <td><span class="points-badge">${c.points} แต้ม</span></td>
+      <td style="color:var(--text3);font-size:12px">${new Date(c.created_at).toLocaleDateString('th-TH')}</td>
+      <td><button class="edit-btn" onclick="event.stopPropagation();viewCustomer('${c.id}','${c.name}')">ประวัติ</button></td>
+    </tr>`).join('');
+}
+
+async function searchCustomers(q) {
+  try {
+    const data = await api('/api/customers' + (q ? '?phone=' + encodeURIComponent(q) : ''));
+    renderCustomersTable(data);
+  } catch {}
+}
+
+async function viewCustomer(id, name) {
+  const ov = document.getElementById('modal-overlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `<div class="modal" style="width:440px"><h3>ประวัติ: ${name}</h3><div class="loading-box"><span class="spinner"></span>กำลังโหลด...</div></div>`;
+  try {
+    const history = await api('/api/customers/' + id + '/history');
+    const total = history.reduce((s,o) => s + o.total, 0);
+    ov.innerHTML = `
+      <div class="modal" style="width:440px;max-height:90vh;overflow-y:auto">
+        <h3>ประวัติ: ${name}</h3>
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <div class="stat-card" style="flex:1"><div class="stat-label">ซื้อทั้งหมด</div><div class="stat-val amber">฿${total.toLocaleString()}</div></div>
+          <div class="stat-card" style="flex:1"><div class="stat-label">จำนวนบิล</div><div class="stat-val">${history.length}</div></div>
+        </div>
+        <div style="max-height:300px;overflow-y:auto">
+          ${history.length ? history.map(o => `
+            <div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;font-size:12px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                <span style="font-family:'DM Mono',monospace;color:var(--amber)">${o.order_number}</span>
+                <span style="font-family:'DM Mono',monospace">฿${o.total}</span>
+              </div>
+              <div style="color:var(--text3)">${new Date(o.created_at).toLocaleString('th-TH')}</div>
+              <div style="margin-top:4px">${(o.order_items||[]).map(i => `${i.menu_item?.name} x${i.quantity}`).join(', ')}</div>
+            </div>`).join('')
+          : '<div style="color:var(--text3);text-align:center;padding:20px">ยังไม่มีประวัติการซื้อ</div>'}
+        </div>
+        <button class="modal-cancel" onclick="closeModal()">ปิด</button>
+      </div>`;
+  } catch { showErr('โหลดประวัติไม่สำเร็จ'); }
+}
+
+function openNewCustomer() {
+  const ov = document.getElementById('modal-overlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `
+    <div class="modal">
+      <h3>เพิ่มลูกค้าใหม่</h3>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">ชื่อ</label>
+        <input class="form-input" id="nc-name" placeholder="ชื่อลูกค้า">
+      </div>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">เบอร์โทร</label>
+        <input class="form-input" id="nc-phone" placeholder="0812345678" inputmode="numeric">
+      </div>
+      <button class="modal-confirm" onclick="saveNewCustomerPage()">บันทึก</button>
+      <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+    </div>`;
+}
+
+async function saveNewCustomerPage() {
+  const name = document.getElementById('nc-name').value.trim();
+  const phone = document.getElementById('nc-phone').value.trim();
+  if (!name || !phone) { showErr('กรุณากรอกชื่อและเบอร์โทร'); return; }
+  try {
+    await api('/api/customers', { method: 'POST', body: { name, phone } });
+    closeModal();
+    loadCustomers();
+    showErr('✅ เพิ่มลูกค้าสำเร็จ');
+  } catch(e) { showErr('บันทึกไม่สำเร็จ: ' + e.message); }
+}
 
 // ─── MENU MANAGEMENT ───────────────────────────────────────
 async function loadMenuManage() {
@@ -907,15 +1238,16 @@ async function deleteMenuItem(id, name) {
 
 // ─── PAGES ─────────────────────────────────────────────────
 function showPage(p) {
-  ['pos', 'kds', 'report', 'menu'].forEach(id => {
+  ['pos', 'kds', 'report', 'menu', 'customers'].forEach(id => {
     document.getElementById('page-' + id).classList.toggle('hidden', id !== p);
   });
   document.querySelectorAll('.nav-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['pos', 'kds', 'report', 'menu'][i] === p);
+    b.classList.toggle('active', ['pos', 'kds', 'report', 'menu', 'customers'][i] === p);
   });
   if (p === 'kds') loadKDS();
   if (p === 'report') loadReport();
   if (p === 'menu') loadMenuManage();
+  if (p === 'customers') loadCustomers();
 }
 
 // ─── INIT ──────────────────────────────────────────────────
