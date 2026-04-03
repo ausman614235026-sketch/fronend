@@ -309,6 +309,9 @@
             </div>
             <div class="disc-info" id="disc-info"></div>
             <div class="points-redeem" id="points-redeem"></div>
+            <div id="redeem-btn-wrap" style="display:none;margin-top:6px">
+              <button class="disc-btn" id="redeem-btn" onclick="redeemPoints()">🎁 ใช้แต้มแลกส่วนลด</button>
+            </div>
           </div>
           <textarea class="note-input" id="order-note" placeholder="หมายเหตุ เช่น หวานน้อย, ไม่แข็ง..."></textarea>
           <div class="subtotal-row"><span>รายการ</span><span id="item-count">0 รายการ</span></div>
@@ -685,6 +688,8 @@ function closeAndNext() {
   document.getElementById('customer-bar-pts').textContent = '';
   document.getElementById('customer-bar-action').textContent = 'แตะเพื่อเลือก';
   document.getElementById('points-redeem').textContent = '';
+  const redeemWrap = document.getElementById('redeem-btn-wrap');
+  if (redeemWrap) redeemWrap.style.display = 'none';
   document.getElementById('disc-info').textContent = '';
   document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
   renderCart();
@@ -869,6 +874,31 @@ function applyDiscount(type, value) {
   renderCart();
 }
 
+
+function redeemPoints() {
+  if (!currentCustomer) return;
+  // Toggle redeem
+  if (currentDiscount && currentDiscount.type === 'points') {
+    // Cancel redeem
+    currentDiscount = null;
+    document.getElementById('disc-info').textContent = '';
+    document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('discount-row-display').style.display = 'none';
+    renderCart();
+    return;
+  }
+  const pts = currentCustomer.points;
+  const redeemPts = Math.floor(pts / 100) * 100;
+  const amount = Math.floor(pts / 100) * 10;
+  if (amount <= 0) return;
+
+  // Clear other discounts first
+  document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
+  currentDiscount = { type: 'points', value: redeemPts, amount };
+  document.getElementById('disc-info').textContent = `ใช้ ${redeemPts} แต้ม = -฿${amount}`;
+  renderCart();
+}
+
 // Override renderCart to show discount
 const _origRenderCart = renderCart;
 renderCart = function() {
@@ -893,8 +923,27 @@ renderCart = function() {
   if (currentCustomer) {
     const pts = currentCustomer.points;
     const redeemable = Math.floor(pts / 100) * 10; // 100 pts = ฿10
+    const redeemPts = Math.floor(pts / 100) * 100;
     document.getElementById('points-redeem').textContent =
-      pts > 0 ? `แต้มสะสม ${pts} แต้ม${redeemable > 0 ? ` (แลกส่วนลดได้ ฿${redeemable})` : ''}` : '';
+      pts > 0 ? `แต้มสะสม ${pts} แต้ม${redeemable > 0 ? ` → แลกส่วนลดได้ ฿${redeemable}` : ''}` : 'แต้มสะสม 0 แต้ม';
+    const wrap = document.getElementById('redeem-btn-wrap');
+    const btn = document.getElementById('redeem-btn');
+    if (redeemable > 0 && wrap) {
+      wrap.style.display = 'block';
+      const isRedeeming = currentDiscount && currentDiscount.type === 'points';
+      btn.textContent = isRedeeming
+        ? `✅ ใช้ ${redeemPts} แต้ม = -฿${redeemable} (ยกเลิก)`
+        : `🎁 ใช้ ${redeemPts} แต้ม = -฿${redeemable}`;
+      btn.classList.toggle('active', isRedeeming);
+    } else if (wrap) {
+      wrap.style.display = 'none';
+    }
+  } else {
+    const wrap = document.getElementById('redeem-btn-wrap');
+    if (wrap) wrap.style.display = 'none';
+    document.getElementById('points-redeem').textContent = '';
+  const redeemWrap = document.getElementById('redeem-btn-wrap');
+  if (redeemWrap) redeemWrap.style.display = 'none';
   }
 };
 
@@ -953,6 +1002,8 @@ function unlinkCustomer() {
   document.getElementById('customer-bar-pts').textContent = '';
   document.getElementById('customer-bar-action').textContent = 'แตะเพื่อเลือก';
   document.getElementById('points-redeem').textContent = '';
+  const redeemWrap = document.getElementById('redeem-btn-wrap');
+  if (redeemWrap) redeemWrap.style.display = 'none';
   closeModal();
 }
 
