@@ -450,6 +450,43 @@ function renderPromoButtons() {
   ).join('') + `<button class="disc-btn" onclick="applyDiscount(null)">ไม่มีส่วนลด</button>`;
 }
 
+function applyPromo(id) {
+  const promo = promotions.find(p => p.id === id);
+  if (!promo) return;
+  // Toggle off if same promo
+  if (currentDiscount && currentDiscount.promoId === id) {
+    applyDiscount(null);
+    return;
+  }
+  const subtotal = cart.reduce((s, c) => s + c.price * c.qty, 0);
+  const totalQty = cart.reduce((s, c) => s + c.qty, 0);
+  let amount = 0;
+  let label = '';
+
+  if (promo.type === 'pct') {
+    amount = Math.round(subtotal * promo.value / 100);
+    label = `${promo.name} = -฿${amount}`;
+  } else if (promo.type === 'fixed') {
+    amount = Math.min(promo.value, subtotal);
+    label = `${promo.name} = -฿${amount}`;
+  } else if (promo.type === 'buy_x_get_1') {
+    if (totalQty < promo.min_qty) {
+      document.getElementById('disc-info').textContent = `ต้องสั่งอย่างน้อย ${promo.min_qty} รายการ`;
+      return;
+    }
+    const freeQty = Math.floor(totalQty / promo.min_qty);
+    const cheapest = [...cart].sort((a,b) => a.price - b.price)[0];
+    amount = cheapest.price * freeQty;
+    label = `${promo.name} = -฿${amount}`;
+  }
+
+  document.querySelectorAll('.disc-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('promo-' + id)?.classList.add('active');
+  currentDiscount = { type: promo.type, value: promo.value, amount, promoId: id };
+  document.getElementById('disc-info').textContent = label;
+  renderCart();
+}
+
 function doLogin() {
   if (!selectedRole) {
     document.getElementById('login-err').textContent = 'กรุณาเลือกบทบาทก่อน';
