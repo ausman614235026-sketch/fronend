@@ -655,10 +655,30 @@ function renderMenuManageTable(items) {
 
 function openMenuForm(id) {
   const item = id ? menuItems.find(m => m.id === id) : null;
+
+  // Get existing categories from current menu
+  const existingCats = [...new Set(menuItems.map(m => m.category))];
+  const defaultCats = ['กาแฟร้อน', 'กาแฟเย็น', 'ชา/อื่นๆ', 'ของกิน'];
+  const allCats = [...new Set([...defaultCats, ...existingCats])];
+
+  const catOptions = allCats.map(c =>
+    `<option value="${c}" ${item && item.category === c ? 'selected' : ''}>${c}</option>`
+  ).join('');
+
+  const emojiList = [
+    {e:'☕',l:'กาแฟ'},{e:'🧊',l:'เย็น'},{e:'🍵',l:'ชา'},
+    {e:'🥤',l:'น้ำ'},{e:'🧃',l:'น้ำผลไม้'},{e:'🍺',l:'เบียร์'},
+    {e:'🥐',l:'ครัวซองต์'},{e:'🥯',l:'เบเกิล'},{e:'🍰',l:'เค้ก'},
+    {e:'🍞',l:'ขนมปัง'},{e:'🧁',l:'คัพเค้ก'},{e:'🍩',l:'โดนัท'},
+    {e:'🥪',l:'แซนวิช'},{e:'🍳',l:'ไข่'},{e:'🍜',l:'ก๋วยเตี๋ยว'}
+  ];
+
+  const currentIcon = item ? item.icon : '☕';
+
   const ov = document.getElementById('modal-overlay');
   ov.classList.remove('hidden');
   ov.innerHTML = `
-    <div class="modal" style="width:400px">
+    <div class="modal" style="width:420px;max-height:90vh;overflow-y:auto">
       <h3>${item ? 'แก้ไขเมนู' : 'เพิ่มเมนูใหม่'}</h3>
       <div class="form-row">
         <div class="form-group" style="grid-column:1/-1">
@@ -669,27 +689,65 @@ function openMenuForm(id) {
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">หมวดหมู่</label>
-          <input class="form-input" id="f-cat" value="${item ? item.category : ''}" placeholder="เช่น กาแฟร้อน">
+          <select class="form-input" id="f-cat">
+            ${catOptions}
+            <option value="__new__">+ เพิ่มหมวดใหม่...</option>
+          </select>
         </div>
         <div class="form-group">
           <label class="form-label">ราคา (บาท)</label>
           <input class="form-input" id="f-price" type="number" value="${item ? item.price : ''}" placeholder="60">
         </div>
       </div>
-      <div class="form-row">
+      <div id="new-cat-wrap" style="display:none;margin-bottom:12px">
         <div class="form-group">
-          <label class="form-label">ไอคอน (Emoji)</label>
-          <input class="form-input" id="f-icon" value="${item ? item.icon : '☕'}" placeholder="☕">
+          <label class="form-label">ชื่อหมวดใหม่</label>
+          <input class="form-input" id="f-cat-new" placeholder="เช่น เครื่องดื่มพิเศษ">
         </div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">ไอคอน</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+          ${emojiList.map(e => `
+            <div onclick="selectEmoji('${e.e}')" id="emoji-${e.e.codePointAt(0)}"
+              style="width:44px;height:44px;border-radius:8px;border:2px solid ${currentIcon===e.e ? 'var(--amber)' : 'var(--border)'};
+              background:${currentIcon===e.e ? 'var(--amber-dim)' : 'var(--bg3)'};
+              display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:all .15s"
+              title="${e.l}">${e.e}</div>`).join('')}
+        </div>
+        <input type="hidden" id="f-icon" value="${currentIcon}">
       </div>
       <button class="modal-confirm" onclick="saveMenuItem('${id || ''}')">บันทึก</button>
       <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
     </div>`;
+
+  // Handle new category option
+  document.getElementById('f-cat').addEventListener('change', function() {
+    document.getElementById('new-cat-wrap').style.display =
+      this.value === '__new__' ? 'block' : 'none';
+  });
+}
+
+function selectEmoji(e) {
+  document.getElementById('f-icon').value = e;
+  document.querySelectorAll('[id^="emoji-"]').forEach(el => {
+    el.style.border = '2px solid var(--border)';
+    el.style.background = 'var(--bg3)';
+  });
+  const id = 'emoji-' + e.codePointAt(0);
+  const el = document.getElementById(id);
+  if (el) {
+    el.style.border = '2px solid var(--amber)';
+    el.style.background = 'var(--amber-dim)';
+  }
 }
 
 async function saveMenuItem(id) {
   const name = document.getElementById('f-name').value.trim();
-  const category = document.getElementById('f-cat').value.trim();
+  const catSel = document.getElementById('f-cat').value;
+  const category = catSel === '__new__'
+    ? document.getElementById('f-cat-new').value.trim()
+    : catSel;
   const price = parseInt(document.getElementById('f-price').value);
   const icon = document.getElementById('f-icon').value.trim() || '☕';
 
