@@ -549,6 +549,7 @@ async function loadMenu() {
     renderCatTabs(cats);
     renderMenuGrid();
     setConn(true);
+    loadPromotions();
   } catch (e) {
     showErr('โหลดเมนูไม่ได้ — ตรวจสอบ API URL');
     setConn(false);
@@ -1150,10 +1151,10 @@ async function saveNewCustomerPage() {
 async function loadPromosPage() {
   try {
     const data = await api('/api/promotions?all=true');
-    promotions = data.filter(p => p.active); // update active list too
+    promotions = data.filter(p => p.active);
     renderPromosTable(data);
     renderPromoButtons();
-  } catch { showErr('โหลดโปรไม่สำเร็จ'); }
+  } catch(e) { showErr('โหลดโปรไม่สำเร็จ: ' + e.message); }
 }
 
 function renderPromosTable(data) {
