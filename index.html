@@ -157,6 +157,18 @@
   .cust-table tr:hover td{background:var(--bg2);cursor:pointer}
   .points-badge{background:var(--amber-dim);color:var(--amber);border-radius:10px;padding:2px 8px;font-family:'DM Mono',monospace;font-size:12px}
 
+
+  .item-note{font-size:10px;color:var(--text3);font-style:italic;margin-top:2px}
+  .note-popup{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:150}
+  .note-popup-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:20px;width:300px}
+  .note-popup-title{font-size:13px;font-weight:500;margin-bottom:10px}
+  .note-quick{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .note-quick-btn{padding:4px 10px;border-radius:14px;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:11px;font-family:'Noto Sans Thai',sans-serif;transition:all .15s}
+  .note-quick-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .note-popup-input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:8px 10px;color:var(--text);font-size:12px;font-family:'Noto Sans Thai',sans-serif;margin-bottom:10px;resize:none;height:60px}
+  .note-popup-input:focus{outline:none;border-color:var(--amber)}
+  .note-popup-btns{display:flex;gap:8px}
+
   /* ── LOGIN ── */
   .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
   .login-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:36px;width:320px;max-width:90vw;text-align:center}
@@ -664,8 +676,14 @@ function renderCart() {
         <span class="qty-num">${c.qty}</span>
         <button class="qty-btn" onclick="changeQty('${c.id}',1)">+</button>
       </div>
-      <span class="item-row-name">${c.name}</span>
-      <span class="item-row-price">฿${c.price * c.qty}</span>
+      <div style="flex:1;min-width:0">
+        <div class="item-row-name">${c.name}</div>
+        ${c.note ? `<div class="item-note">📝 ${c.note}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="qty-btn" style="font-size:11px;width:auto;padding:0 6px" onclick="openItemNote('${c.id}')">📝</button>
+        <span class="item-row-price">฿${c.price * c.qty}</span>
+      </div>
     </div>`
   ).join('');
   const total = cart.reduce((s, c) => s + c.price * c.qty, 0);
@@ -720,7 +738,7 @@ async function confirmPayment(total) {
     const order = await api('/api/orders', {
       method: 'POST',
       body: {
-        items: cart,
+        items: cart.map(c => ({ ...c, item_note: c.note || '' })),
         total: finalTotal,
         payment_method: method,
         note,
@@ -815,7 +833,8 @@ function renderKDSCard(order, isNew) {
       ${items.map(i => {
         const name = i.menu_item?.name || i.name;
         const qty  = i.quantity || i.qty;
-        return `<div class="kds-item-row"><span class="kds-qty">x${qty}</span><span>${name}</span></div>`;
+        const itemNote = i.item_note || i.note || '';
+        return `<div class="kds-item-row"><span class="kds-qty">x${qty}</span><div><span>${name}</span>${itemNote ? `<div style="font-size:10px;color:var(--amber);margin-top:1px">${itemNote}</div>` : ''}</div></div>`;
       }).join('')}
     </div>
     ${order.note ? `<div class="kds-note">📝 ${order.note}</div>` : ''}
@@ -979,6 +998,64 @@ function redeemPoints(ptsToUse) {
   currentDiscount = { type: 'points', value: ptsToUse, amount };
   document.getElementById('disc-info').textContent = `ใช้ ${ptsToUse} แต้ม = -฿${amount}`;
   renderCart();
+}
+
+
+function openItemNote(id) {
+  const item = cart.find(c => c.id === id);
+  if (!item) return;
+
+  const quickNotes = item.category === 'ของกิน'
+    ? ['อุ่นด้วย', 'ไม่อุ่น', 'เผ็ดน้อย', 'เผ็ดมาก', 'ไม่ใส่ผัก']
+    : ['หวานน้อย', 'หวานปกติ', 'ไม่หวาน', 'ขั่วเข้ม', 'ขั่วอ่อน', 'ไม่ใส่น้ำแข็ง', 'น้ำแข็งน้อย', 'นมน้อย', 'นมมาก', 'ดับเบิ้ล'];
+
+  const popup = document.createElement('div');
+  popup.className = 'note-popup';
+  popup.id = 'item-note-popup';
+  popup.innerHTML = `
+    <div class="note-popup-box">
+      <div class="note-popup-title">หมายเหตุ: ${item.name}</div>
+      <div class="note-quick">
+        ${quickNotes.map(n =>
+          `<button class="note-quick-btn" onclick="addQuickNote('${id}','${n}')">${n}</button>`
+        ).join('')}
+      </div>
+      <textarea class="note-popup-input" id="item-note-input" placeholder="พิมพ์หมายเหตุเพิ่มเติม...">${item.note||''}</textarea>
+      <div class="note-popup-btns">
+        <button class="modal-confirm" style="flex:1;padding:8px" onclick="saveItemNote('${id}')">บันทึก</button>
+        <button class="pay-btn" style="flex:1" onclick="clearItemNote('${id}')">ล้าง</button>
+        <button class="modal-cancel" style="margin:0;padding:8px 12px" onclick="closeItemNote()">ปิด</button>
+      </div>
+    </div>`;
+  document.body.appendChild(popup);
+  document.getElementById('item-note-input').focus();
+}
+
+function addQuickNote(id, note) {
+  const input = document.getElementById('item-note-input');
+  if (!input) return;
+  input.value = input.value ? input.value + ', ' + note : note;
+}
+
+function saveItemNote(id) {
+  const input = document.getElementById('item-note-input');
+  const item = cart.find(c => c.id === id);
+  if (item) item.note = input.value.trim();
+  closeItemNote();
+  renderCart();
+}
+
+function clearItemNote(id) {
+  const item = cart.find(c => c.id === id);
+  if (item) item.note = '';
+  document.getElementById('item-note-input').value = '';
+  closeItemNote();
+  renderCart();
+}
+
+function closeItemNote() {
+  const popup = document.getElementById('item-note-popup');
+  if (popup) popup.remove();
 }
 
 // Override renderCart to show discount
