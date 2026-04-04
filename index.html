@@ -495,8 +495,19 @@
 
     
     <div id="page-dashboard" class="hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
         <span style="font-size:15px;font-weight:500">📊 ภาพรวมร้าน</span>
+        <div style="display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap">
+          <input type="date" class="date-input" id="db-from" style="font-size:12px;padding:5px 8px">
+          <span style="font-size:12px;color:var(--text3)">ถึง</span>
+          <input type="date" class="date-input" id="db-to" style="font-size:12px;padding:5px 8px">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="disc-btn" onclick="setDbRange('today')">วันนี้</button>
+            <button class="disc-btn" onclick="setDbRange('week')">7 วัน</button>
+            <button class="disc-btn" onclick="setDbRange('month')">30 วัน</button>
+            <button class="disc-btn" onclick="setDbRange('thismonth')">เดือนนี้</button>
+          </div>
+        </div>
         <button class="refresh-btn" onclick="loadDashboard()">🔄 รีเฟรช</button>
       </div>
 
@@ -540,7 +551,7 @@
           <div id="db-vip"></div>
         </div>
         <div class="report-box">
-          <div class="section-title">🎁 ส่วนลดวันนี้</div>
+          <div class="section-title" id="db-discount-title">🎁 ส่วนลดวันนี้</div>
           <div id="db-discount"></div>
         </div>
       </div>
@@ -698,6 +709,10 @@ function doLogin() {
   const weekAgo = new Date(Date.now()-7*864e5).toISOString().slice(0,10);
   document.getElementById('range-from').value = weekAgo;
   document.getElementById('range-to').value = today;
+  if (document.getElementById('db-from')) {
+    document.getElementById('db-from').value = today;
+    document.getElementById('db-to').value = today;
+  }
 }
 
 function applyRoleUI() {
@@ -1722,25 +1737,50 @@ async function saveNewCustomerPage() {
 
 
 // ─── DASHBOARD ──────────────────────────────────────────────
+function setDbRange(mode) {
+  const today = new Date();
+  let from, to = today.toISOString().slice(0,10);
+  if (mode === 'today') {
+    from = to;
+  } else if (mode === 'week') {
+    const d = new Date(today); d.setDate(d.getDate()-6);
+    from = d.toISOString().slice(0,10);
+  } else if (mode === 'month') {
+    const d = new Date(today); d.setDate(d.getDate()-29);
+    from = d.toISOString().slice(0,10);
+  } else if (mode === 'thismonth') {
+    from = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0,10);
+  }
+  document.getElementById('db-from').value = from;
+  document.getElementById('db-to').value = to;
+  loadDashboard();
+}
+
 async function loadDashboard() {
   const today = new Date().toISOString().slice(0, 10);
+  const from = document.getElementById('db-from')?.value || today;
+  const to = document.getElementById('db-to')?.value || today;
+  const isToday = from === today && to === today;
+  const daysDiff = Math.ceil((new Date(to) - new Date(from)) / 864e5) + 1;
 
   // Load all data in parallel
   try {
-    const [summary, topItems, compare, topCusts, peakHours, discounts] = await Promise.all([
-      api(`/api/reports/summary?date=${today}`),
-      api('/api/reports/top-items?days=7'),
+    const [rangeData, topItems, compare, topCusts, peakHours, discounts] = await Promise.all([
+      isToday ? api(`/api/reports/summary?date=${today}`) : api(`/api/reports/range?from=${from}&to=${to}`),
+      api(`/api/reports/top-items?days=${daysDiff}`),
       api('/api/reports/compare?mode=week'),
       api('/api/reports/top-customers'),
-      api('/api/reports/peak-hours?days=30'),
-      api(`/api/reports/discounts?from=${today}&to=${today}`)
+      api(`/api/reports/peak-hours?days=${Math.max(daysDiff,7)}`),
+      api(`/api/reports/discounts?from=${from}&to=${to}`)
     ]);
+    const summary = rangeData;
 
     // KPI Cards
     const peakH = peakHours.reduce((b,h) => h.count > b.count ? h : b, peakHours[0]);
+    const rangeLabel = isToday ? 'วันนี้' : `${from} ถึง ${to}`;
     document.getElementById('db-kpi').innerHTML = `
       <div class="db-kpi-card">
-        <div class="stat-label">💰 ยอดวันนี้</div>
+        <div class="stat-label">💰 ยอด${rangeLabel}</div>
         <div class="stat-val amber">฿${summary.total.toLocaleString()}</div>
         <div class="stat-sub">${summary.count} บิล · เฉลี่ย ฿${summary.avg}</div>
       </div>
@@ -1760,14 +1800,30 @@ async function loadDashboard() {
         <div class="stat-sub">${discounts.count||0} บิลที่ใช้ส่วนลด</div>
       </div>`;
 
-    // Hourly chart
-    const hours = summary.hourly.slice(6, 22);
-    const maxH2 = Math.max(...hours, 1);
-    document.getElementById('db-hourly').innerHTML = hours.map((v, i) => `
-      <div class="chart-bar-wrap">
-        <div class="chart-bar" style="height:${Math.round(v/maxH2*90)}px"></div>
-        <span class="chart-label">${i+6}</span>
-      </div>`).join('');
+    // Hourly chart (today) or Daily chart (range)
+    const dbHourlyEl = document.getElementById('db-hourly');
+    const dbHourlyTitle = dbHourlyEl.closest('.report-box')?.querySelector('.section-title');
+    if (isToday && summary.hourly) {
+      if (dbHourlyTitle) dbHourlyTitle.textContent = 'ยอดขายรายชั่วโมง (วันนี้)';
+      const hours = summary.hourly.slice(6, 22);
+      const maxH2 = Math.max(...hours, 1);
+      dbHourlyEl.innerHTML = hours.map((v, i) => `
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:${Math.round(v/maxH2*90)}px"></div>
+          <span class="chart-label">${i+6}</span>
+        </div>`).join('');
+    } else if (summary.daily) {
+      if (dbHourlyTitle) dbHourlyTitle.textContent = `ยอดขายรายวัน (${from} ถึง ${to})`;
+      const dailyEntries = Object.entries(summary.daily).slice(-14);
+      const maxD2 = Math.max(...dailyEntries.map(([,v])=>v), 1);
+      dbHourlyEl.innerHTML = dailyEntries.map(([d,v]) => `
+        <div class="chart-bar-wrap">
+          <div class="chart-bar" style="height:${Math.round(v/maxD2*90)}px"></div>
+          <span class="chart-label">${d.slice(5)}</span>
+        </div>`).join('');
+    } else {
+      dbHourlyEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">ไม่มีข้อมูล</div>';
+    }
 
     // Payment methods
     const byM = summary.byMethod || {};
