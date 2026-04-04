@@ -769,7 +769,9 @@ async function confirmPayment(total) {
   btn.innerHTML = '<span class="spinner"></span>กำลังบันทึก...';
 
   try {
-    const finalTotal = currentDiscount ? total - currentDiscount.amount : total;
+    const subtotalAmt2 = cart.reduce((s, c) => s + c.price * c.qty, 0);
+    const discountAmt2 = currentDiscount ? currentDiscount.amount : 0;
+    const finalTotal = subtotalAmt2 - discountAmt2;
     const order = await api('/api/orders', {
       method: 'POST',
       body: {
@@ -788,8 +790,8 @@ async function confirmPayment(total) {
       `${c.name.padEnd(16,' ')} x${c.qty}  ฿${c.price * c.qty}`
     ).join('\n');
 
-    const subtotalAmt = cart.reduce((s, c) => s + c.price * c.qty, 0);
-    const discountAmt = currentDiscount ? currentDiscount.amount : 0;
+    const subtotalAmt = subtotalAmt2;
+    const discountAmt = discountAmt2;
     const pointsEarned = Math.floor(finalTotal / 10);
     const pointsUsed = (currentDiscount && currentDiscount.type === 'points') ? currentDiscount.value : 0;
     const savedCart = [...cart];
