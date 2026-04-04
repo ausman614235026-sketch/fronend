@@ -171,6 +171,19 @@
 
 
 
+
+  /* ── DASHBOARD ── */
+  @media (max-width: 700px) {
+    #db-row4 { grid-template-columns: 1fr !important; }
+  }
+  .db-kpi-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;position:relative;overflow:hidden}
+  .db-kpi-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--amber)}
+  .db-kpi-card.green::before{background:var(--green)}
+  .db-kpi-card.blue::before{background:var(--blue)}
+  .db-kpi-card.red::before{background:var(--red)}
+  .db-pending-row{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;border:1px solid var(--border);margin-bottom:6px;font-size:12px}
+  .db-pending-row.urgent{border-color:var(--red)}
+
   /* ── REPORT EXTENDED ── */
   .method-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px}
   .method-row:last-child{border-bottom:none}
@@ -329,6 +342,7 @@
     <div class="nav">
       <button class="nav-btn active" onclick="showPage('pos')">รับออเดอร์</button>
       <button class="nav-btn" onclick="showPage('kds')" id="nav-kds">หน้าบาร์<span class="badge-count hidden" id="kds-badge">0</span></button>
+      <button class="nav-btn" onclick="showPage('dashboard')">📊 Dashboard</button>
       <button class="nav-btn" onclick="showPage('report')">รายงาน</button>
       <button class="nav-btn" onclick="showPage('menu')">จัดการเมนู</button>
       <button class="nav-btn" onclick="showPage('customers')">ลูกค้า</button>
@@ -478,6 +492,65 @@
       </table>
     </div>
 
+
+    
+    <div id="page-dashboard" class="hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <span style="font-size:15px;font-weight:500">📊 ภาพรวมร้าน</span>
+        <button class="refresh-btn" onclick="loadDashboard()">🔄 รีเฟรช</button>
+      </div>
+
+      <!-- Row 1: KPI Cards -->
+      <div class="report-grid" id="db-kpi" style="margin-bottom:16px">
+        <div class="loading-box"><span class="spinner"></span></div>
+      </div>
+
+      <!-- Row 2: Today sales + payment method -->
+      <div class="report-cols" style="margin-bottom:16px">
+        <div class="report-box">
+          <div class="section-title">ยอดขายรายชั่วโมง (วันนี้)</div>
+          <div class="chart-wrap" id="db-hourly"></div>
+        </div>
+        <div class="report-box">
+          <div class="section-title">วิธีชำระเงิน (วันนี้)</div>
+          <div id="db-payment"></div>
+        </div>
+      </div>
+
+      <!-- Row 3: Weekly compare + top menu -->
+      <div class="report-cols" style="margin-bottom:16px">
+        <div class="report-box">
+          <div class="section-title">ยอดขาย 4 สัปดาห์ล่าสุด</div>
+          <div class="compare-bar-wrap" id="db-weekly" style="height:130px"></div>
+        </div>
+        <div class="report-box">
+          <div class="section-title">เมนูขายดี 7 วัน</div>
+          <div id="db-topmenu"></div>
+        </div>
+      </div>
+
+      <!-- Row 4: Peak hours + VIP + discount -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px" id="db-row4">
+        <div class="report-box">
+          <div class="section-title">⏰ ช่วงเวลาขายดี</div>
+          <div id="db-peak"></div>
+        </div>
+        <div class="report-box">
+          <div class="section-title">👑 ลูกค้า VIP Top 5</div>
+          <div id="db-vip"></div>
+        </div>
+        <div class="report-box">
+          <div class="section-title">🎁 ส่วนลดวันนี้</div>
+          <div id="db-discount"></div>
+        </div>
+      </div>
+
+      <!-- Row 5: Pending orders -->
+      <div class="report-box">
+        <div class="section-title">🟡 คิวรอทำตอนนี้ (<span id="db-pending-count">0</span> รายการ)</div>
+        <div id="db-pending"></div>
+      </div>
+    </div>
 
     <div id="page-customers" class="hidden">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
@@ -631,11 +704,14 @@ function applyRoleUI() {
   const isAdmin = currentRole === 'admin';
   const navBtns = document.querySelectorAll('.nav-btn');
   // report = index 2, menu = index 3
-  navBtns[2].style.display = isAdmin ? '' : 'none'; // รายงาน
-  navBtns[3].style.display = isAdmin ? '' : 'none'; // จัดการเมนู
-  navBtns[4].style.display = isAdmin ? '' : 'none'; // ลูกค้า
-  navBtns[5].style.display = isAdmin ? '' : 'none'; // โปรโมชั่น
+  navBtns[2].style.display = isAdmin ? '' : 'none'; // Dashboard
+  navBtns[3].style.display = isAdmin ? '' : 'none'; // รายงาน
+  navBtns[4].style.display = isAdmin ? '' : 'none'; // จัดการเมนู
+  navBtns[5].style.display = isAdmin ? '' : 'none'; // ลูกค้า
+  navBtns[6].style.display = isAdmin ? '' : 'none'; // โปรโมชั่น
   document.getElementById('settings-btn').style.display = isAdmin ? '' : 'none';
+  // Admin default page
+  if (isAdmin) showPage('dashboard');
 
   const badge = document.getElementById('user-badge');
   badge.innerHTML = currentRole === 'admin' ? '👑 Admin' : '👨‍💼 แคชเชียร์';
@@ -1644,6 +1720,151 @@ async function saveNewCustomerPage() {
 }
 
 
+
+// ─── DASHBOARD ──────────────────────────────────────────────
+async function loadDashboard() {
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Load all data in parallel
+  try {
+    const [summary, topItems, compare, topCusts, peakHours, discounts] = await Promise.all([
+      api(`/api/reports/summary?date=${today}`),
+      api('/api/reports/top-items?days=7'),
+      api('/api/reports/compare?mode=week'),
+      api('/api/reports/top-customers'),
+      api('/api/reports/peak-hours?days=30'),
+      api(`/api/reports/discounts?from=${today}&to=${today}`)
+    ]);
+
+    // KPI Cards
+    const peakH = peakHours.reduce((b,h) => h.count > b.count ? h : b, peakHours[0]);
+    document.getElementById('db-kpi').innerHTML = `
+      <div class="db-kpi-card">
+        <div class="stat-label">💰 ยอดวันนี้</div>
+        <div class="stat-val amber">฿${summary.total.toLocaleString()}</div>
+        <div class="stat-sub">${summary.count} บิล · เฉลี่ย ฿${summary.avg}</div>
+      </div>
+      <div class="db-kpi-card green">
+        <div class="stat-label">📦 คิวรอทำ</div>
+        <div class="stat-val" style="color:var(--green)">${pendingOrders.length}</div>
+        <div class="stat-sub">รายการรอทำ</div>
+      </div>
+      <div class="db-kpi-card blue">
+        <div class="stat-label">⏰ ช่วงขายดี</div>
+        <div class="stat-val" style="color:var(--blue)">${peakH.hour}:00</div>
+        <div class="stat-sub">${peakH.count} ออเดอร์ใน 30 วัน</div>
+      </div>
+      <div class="db-kpi-card red">
+        <div class="stat-label">🎁 ส่วนลดวันนี้</div>
+        <div class="stat-val" style="color:var(--red)">฿${(discounts.totalDiscount||0).toLocaleString()}</div>
+        <div class="stat-sub">${discounts.count||0} บิลที่ใช้ส่วนลด</div>
+      </div>`;
+
+    // Hourly chart
+    const hours = summary.hourly.slice(6, 22);
+    const maxH2 = Math.max(...hours, 1);
+    document.getElementById('db-hourly').innerHTML = hours.map((v, i) => `
+      <div class="chart-bar-wrap">
+        <div class="chart-bar" style="height:${Math.round(v/maxH2*90)}px"></div>
+        <span class="chart-label">${i+6}</span>
+      </div>`).join('');
+
+    // Payment methods
+    const byM = summary.byMethod || {};
+    const maxM = Math.max(...Object.values(byM), 1);
+    document.getElementById('db-payment').innerHTML = Object.keys(byM).length
+      ? Object.entries(byM).map(([m,v]) => `
+          <div class="method-row">
+            <div style="flex:1">
+              <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                <span>${m}</span>
+                <span style="font-family:'DM Mono',monospace;color:var(--amber)">฿${v.toLocaleString()}</span>
+              </div>
+              <div class="method-bar-bg"><div class="method-bar-fill" style="width:${Math.round(v/maxM*100)}%"></div></div>
+            </div>
+          </div>`).join('')
+      : '<div style="color:var(--text3);font-size:12px;padding:16px 0;text-align:center">ยังไม่มีข้อมูล</div>';
+
+    // Weekly compare bars
+    const maxW = Math.max(...compare.map(d=>d.total), 1);
+    document.getElementById('db-weekly').innerHTML = compare.map((d,i) => `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center">
+        <div style="flex:1;width:100%;display:flex;align-items:flex-end">
+          <div class="compare-bar${i===compare.length-1?' current':''}" style="width:100%;height:${Math.round(d.total/maxW*110)+4}px">
+            <span class="compare-val">฿${d.total>999?Math.round(d.total/1000)+'k':d.total}</span>
+          </div>
+        </div>
+        <div class="compare-label">${d.label}</div>
+        <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace">${d.count} บิล</div>
+      </div>`).join('');
+
+    // Top menu
+    const maxQ = topItems[0]?.qty || 1;
+    document.getElementById('db-topmenu').innerHTML = topItems.slice(0,7).length
+      ? topItems.slice(0,7).map(i => `
+          <div class="top-item-row">
+            <span>${i.name}</span>
+            <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--amber)">${i.qty} แก้ว</span>
+          </div>
+          <div class="top-bar" style="width:${Math.round(i.qty/maxQ*100)}%"></div>`).join('')
+      : '<div style="color:var(--text3);font-size:12px;padding:16px 0;text-align:center">ยังไม่มีข้อมูล</div>';
+
+    // Peak hours heatmap
+    const maxP = Math.max(...peakHours.map(h=>h.count), 1);
+    document.getElementById('db-peak').innerHTML = `
+      <div class="peak-grid" style="grid-template-columns:repeat(4,1fr)">
+        ${peakHours.slice(6,22).map(h => {
+          const intensity = h.count/maxP;
+          const bg = h.count===0 ? 'var(--bg3)' : `rgba(232,160,32,${0.15+intensity*0.85})`;
+          const tc = intensity > 0.5 ? '#000' : 'var(--text)';
+          return `<div class="peak-cell" style="background:${bg};color:${tc}">
+            <div class="peak-hour">${h.hour}:00</div>
+            <div class="peak-val">${h.count}</div>
+          </div>`;
+        }).join('')}
+      </div>`;
+
+    // VIP top 5
+    document.getElementById('db-vip').innerHTML = topCusts.slice(0,5).length
+      ? topCusts.slice(0,5).map((c,i) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--amber);min-width:20px">${['🥇','🥈','🥉','4.','5.'][i]}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
+              <div style="font-size:10px;color:var(--text3)">${c.count} บิล · ${c.points} แต้ม</div>
+            </div>
+            <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--amber)">฿${c.total.toLocaleString()}</span>
+          </div>`).join('')
+      : '<div style="color:var(--text3);font-size:12px;padding:16px 0;text-align:center">ยังไม่มีข้อมูล</div>';
+
+    // Discount summary
+    const byT = discounts.byType || {};
+    const typeLabel = { pct:'ลด %', fixed:'ลดบาท', buy_x_get_1:'ซื้อแถม', points:'ใช้แต้ม' };
+    document.getElementById('db-discount').innerHTML = Object.keys(byT).length
+      ? `<div style="font-size:20px;font-family:'DM Mono',monospace;color:var(--green);margin-bottom:8px">฿${(discounts.totalDiscount||0).toLocaleString()}</div>` +
+        Object.entries(byT).map(([t,d]) =>
+          `<div class="method-row"><span>${typeLabel[t]||t}</span><span style="font-family:'DM Mono',monospace;font-size:11px">${d.count} บิล · ฿${d.total}</span></div>`
+        ).join('')
+      : '<div style="color:var(--text3);font-size:12px;padding:16px 0;text-align:center">ไม่มีส่วนลดวันนี้ 🎉</div>';
+
+    // Pending orders
+    document.getElementById('db-pending-count').textContent = pendingOrders.length;
+    document.getElementById('db-pending').innerHTML = pendingOrders.length
+      ? pendingOrders.slice(0,5).map(o => {
+          const mins = Math.floor((Date.now() - new Date(o.created_at)) / 60000);
+          return `<div class="db-pending-row${mins>=5?' urgent':''}">
+            <span style="font-family:'DM Mono',monospace;color:var(--amber)">${o.order_number}</span>
+            <span>${(o.order_items||[]).length} รายการ</span>
+            <span style="color:${mins>=5?'var(--red)':'var(--text3)'};font-size:11px">${mins<1?'เพิ่งสั่ง':mins+' นาที'}</span>
+          </div>`;
+        }).join('') + (pendingOrders.length > 5 ? `<div style="color:var(--text3);font-size:11px;text-align:center;padding:6px">และอีก ${pendingOrders.length-5} รายการ</div>` : '')
+      : '<div style="color:var(--text3);font-size:12px;padding:16px 0;text-align:center">ไม่มีคิวรอ ☕</div>';
+
+  } catch(e) {
+    document.getElementById('db-kpi').innerHTML = `<div style="color:var(--red);font-size:13px;padding:20px">${e.message}</div>`;
+  }
+}
+
 // ─── PROMOTIONS MANAGEMENT ──────────────────────────────────
 async function loadPromosPage() {
   try {
@@ -1918,17 +2139,18 @@ async function deleteMenuItem(id, name) {
 
 // ─── PAGES ─────────────────────────────────────────────────
 function showPage(p) {
-  ['pos', 'kds', 'report', 'menu', 'customers', 'promos'].forEach(id => {
+  ['pos', 'kds', 'dashboard', 'report', 'menu', 'customers', 'promos'].forEach(id => {
     document.getElementById('page-' + id).classList.toggle('hidden', id !== p);
   });
   document.querySelectorAll('.nav-btn').forEach((b, i) => {
-    b.classList.toggle('active', ['pos', 'kds', 'report', 'menu', 'customers', 'promos'][i] === p);
+    b.classList.toggle('active', ['pos', 'kds', 'dashboard', 'report', 'menu', 'customers', 'promos'][i] === p);
   });
   if (p === 'kds') loadKDS();
   if (p === 'report') loadReport();
   if (p === 'menu') loadMenuManage();
   if (p === 'customers') loadCustomers();
   if (p === 'promos') loadPromosPage();
+  if (p === 'dashboard') loadDashboard();
 }
 
 // ─── INIT ──────────────────────────────────────────────────
