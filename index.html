@@ -169,6 +169,33 @@
   .note-popup-input:focus{outline:none;border-color:var(--amber)}
   .note-popup-btns{display:flex;gap:8px}
 
+
+  /* ── RECEIPT ── */
+  @media print {
+    body > *:not(#receipt-print-area) { display: none !important; }
+    #receipt-print-area { display: block !important; }
+    @page { margin: 0; size: 80mm auto; }
+  }
+  #receipt-print-area {
+    display: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    width: 80mm;
+    padding: 4mm;
+    color: #000;
+    background: #fff;
+    line-height: 1.6;
+  }
+  .receipt-center { text-align: center; }
+  .receipt-shop { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+  .receipt-divider { border-top: 1px dashed #000; margin: 6px 0; }
+  .receipt-row { display: flex; justify-content: space-between; }
+  .receipt-row-indent { display: flex; justify-content: space-between; padding-left: 8px; font-size: 11px; color: #555; }
+  .receipt-total { font-size: 15px; font-weight: bold; }
+  .receipt-discount { color: #000; }
+  .receipt-points { font-size: 11px; }
+  .receipt-footer { text-align: center; font-size: 11px; margin-top: 8px; }
+
   /* ── LOGIN ── */
   .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999}
   .login-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-lg);padding:36px;width:320px;max-width:90vw;text-align:center}
@@ -242,6 +269,9 @@
 </head>
 <body>
 
+
+<div id="receipt-print-area"></div>
+
 <div id="login-screen" class="login-screen">
   <div class="login-box">
     <div class="login-logo">☕</div>
@@ -285,6 +315,7 @@
     <div class="topbar-right">
       <div class="conn-dot off" id="conn-dot" title="สถานะการเชื่อมต่อ"></div>
       <span class="topbar-time" id="clock"></span>
+      <button class="nav-btn" id="settings-btn" onclick="openSettings()" style="display:none;font-size:11px">⚙️ ตั้งค่า</button>
       <div class="user-badge" onclick="logout()" id="user-badge" title="ออกจากระบบ"></div>
     </div>
   </div>
@@ -530,6 +561,7 @@ function applyRoleUI() {
   navBtns[3].style.display = isAdmin ? '' : 'none'; // จัดการเมนู
   navBtns[4].style.display = isAdmin ? '' : 'none'; // ลูกค้า
   navBtns[5].style.display = isAdmin ? '' : 'none'; // โปรโมชั่น
+  document.getElementById('settings-btn').style.display = isAdmin ? '' : 'none';
 
   const badge = document.getElementById('user-badge');
   badge.innerHTML = currentRole === 'admin' ? '👑 Admin' : '👨‍💼 แคชเชียร์';
@@ -756,12 +788,25 @@ async function confirmPayment(total) {
       `${c.name.padEnd(16,' ')} x${c.qty}  ฿${c.price * c.qty}`
     ).join('\n');
 
+    const subtotalAmt = cart.reduce((s, c) => s + c.price * c.qty, 0);
+    const discountAmt = currentDiscount ? currentDiscount.amount : 0;
+    const pointsEarned = Math.floor(finalTotal / 10);
+    const pointsUsed = (currentDiscount && currentDiscount.type === 'points') ? currentDiscount.value : 0;
+    const savedCart = [...cart];
+    const savedCustomer = currentCustomer ? { ...currentCustomer } : null;
+    window._receiptData = { order, savedCart, finalTotal, subtotalAmt, discountAmt, method, savedCustomer, pointsEarned, pointsUsed };
+
     document.getElementById('modal-overlay').innerHTML = `
       <div class="modal">
         <div style="font-size:36px;text-align:center;margin:8px 0">✅</div>
         <h3 style="text-align:center">ชำระเงินสำเร็จ</h3>
-        <div class="receipt-lines">${order.order_number}\n${'─'.repeat(26)}\n${lines}\n${'─'.repeat(26)}\nรวม    ฿${total}\nวิธี    ${method}\n${new Date().toLocaleString('th-TH')}</div>
-        <button class="modal-confirm" onclick="closeAndNext()">รับออเดอร์ถัดไป</button>
+        <div style="font-size:13px;text-align:center;color:var(--text2);margin-bottom:8px">${order.order_number} · ฿${finalTotal}</div>
+        ${discountAmt > 0 ? `<div style="font-size:12px;text-align:center;color:var(--green);margin-bottom:4px">ส่วนลด -฿${discountAmt}</div>` : ''}
+        ${savedCustomer ? `<div style="font-size:12px;text-align:center;color:var(--amber);margin-bottom:8px">+${pointsEarned} แต้ม → ${savedCustomer.name}</div>` : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <button class="modal-confirm" onclick="closeAndNext()">รับออเดอร์ถัดไป</button>
+          <button class="pay-btn" style="background:var(--bg3)" onclick="doPrint()">🖨️ ปริ้นใบเสร็จ</button>
+        </div>
       </div>`;
     orderCounter++;
   } catch (e) {
@@ -769,6 +814,12 @@ async function confirmPayment(total) {
     btn.textContent = 'ยืนยันชำระเงิน';
     showErr('บันทึกออเดอร์ไม่สำเร็จ: ' + e.message);
   }
+}
+
+function doPrint() {
+  const d = window._receiptData;
+  if (!d) return;
+  printReceipt(d.order, d.savedCart, d.finalTotal, d.subtotalAmt, d.discountAmt, d.method, d.savedCustomer, d.pointsEarned, d.pointsUsed);
 }
 
 function closeAndNext() {
@@ -930,6 +981,100 @@ async function loadReport() {
 }
 
 
+
+
+
+function openSettings() {
+  const ov = document.getElementById('modal-overlay');
+  ov.classList.remove('hidden');
+  ov.innerHTML = `
+    <div class="modal">
+      <h3>⚙️ ตั้งค่าร้าน</h3>
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label">ชื่อร้าน (แสดงในใบเสร็จ)</label>
+        <input class="form-input" id="s-shopname" value="${shopName}" placeholder="ชื่อร้าน">
+      </div>
+      <button class="modal-confirm" onclick="saveSettings()">บันทึก</button>
+      <button class="modal-cancel" onclick="closeModal()">ยกเลิก</button>
+    </div>`;
+}
+
+function saveSettings() {
+  shopName = document.getElementById('s-shopname').value.trim() || 'CAFÉ POS';
+  localStorage.setItem('shopName', shopName);
+  closeModal();
+  showErr('✅ บันทึกตั้งค่าแล้ว');
+}
+
+// ─── RECEIPT ────────────────────────────────────────────────
+let shopName = localStorage.getItem('shopName') || 'CAFÉ POS';
+
+function printReceipt(order, cartItems, total, subtotal, discountAmt, method, customer, pointsEarned, pointsUsed) {
+  const area = document.getElementById('receipt-print-area');
+  const now = new Date().toLocaleString('th-TH');
+
+  const itemLines = cartItems.map(c => {
+    const noteHtml = c.note ? `<div style="padding-left:8px;font-size:10px;color:#555">  📝 ${c.note}</div>` : '';
+    return `
+      <div class="receipt-row">
+        <span>${c.name} x${c.qty}</span>
+        <span>฿${c.price * c.qty}</span>
+      </div>${noteHtml}`;
+  }).join('');
+
+  const discountLine = discountAmt > 0 ? `
+    <div class="receipt-row receipt-discount">
+      <span>ส่วนลด</span>
+      <span>-฿${discountAmt}</span>
+    </div>` : '';
+
+  const pointsEarnedLine = pointsEarned > 0 ? `
+    <div class="receipt-row receipt-points">
+      <span>แต้มที่ได้รับ</span>
+      <span>+${pointsEarned} แต้ม</span>
+    </div>` : '';
+
+  const pointsUsedLine = pointsUsed > 0 ? `
+    <div class="receipt-row receipt-points">
+      <span>แต้มที่ใช้</span>
+      <span>-${pointsUsed} แต้ม</span>
+    </div>` : '';
+
+  const customerLine = customer ? `
+    <div class="receipt-row receipt-points">
+      <span>ลูกค้า</span>
+      <span>${customer.name}</span>
+    </div>` : '';
+
+  area.innerHTML = `
+    <div class="receipt-center">
+      <div class="receipt-shop">${shopName}</div>
+    </div>
+    <div class="receipt-divider"></div>
+    <div class="receipt-row"><span>เลขที่</span><span>${order.order_number}</span></div>
+    <div class="receipt-row"><span>วันที่</span><span>${now}</span></div>
+    <div class="receipt-row"><span>ชำระด้วย</span><span>${method}</span></div>
+    ${customerLine}
+    <div class="receipt-divider"></div>
+    ${itemLines}
+    <div class="receipt-divider"></div>
+    ${discountAmt > 0 ? `<div class="receipt-row"><span>ราคาปกติ</span><span>฿${subtotal}</span></div>` : ''}
+    ${discountLine}
+    <div class="receipt-row receipt-total">
+      <span>รวมทั้งสิ้น</span>
+      <span>฿${total}</span>
+    </div>
+    <div class="receipt-divider"></div>
+    ${pointsEarnedLine}
+    ${pointsUsedLine}
+    ${customer ? `<div class="receipt-row receipt-points"><span>แต้มคงเหลือ</span><span>${(customer.points || 0) - pointsUsed + pointsEarned} แต้ม</span></div>` : ''}
+    <div class="receipt-divider"></div>
+    <div class="receipt-footer">ขอบคุณที่ใช้บริการ 🙏</div>
+    <div style="height:20px"></div>
+  `;
+
+  setTimeout(() => window.print(), 100);
+}
 
 // ─── CUSTOMER & DISCOUNT ────────────────────────────────────
 let currentCustomer = null;
